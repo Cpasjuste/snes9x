@@ -59,7 +59,7 @@ list(REMOVE_ITEM SNES9X_SRC
         )
 
 set(SNES9X_CFLAGS
-        -O3
+        #-O3
         #-O0 -g
         -fomit-frame-pointer -std=c++11 -fno-exceptions
         -fno-rtti -pedantic -Wall -W -Wno-unused-parameter

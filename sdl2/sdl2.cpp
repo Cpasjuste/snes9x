@@ -230,6 +230,9 @@ static uint16 *texture_pixels = nullptr;
 
 static uint16 *snes_pixels = nullptr;
 
+static int screen_width;
+static int screen_height;
+
 void exit_handler();
 
 bool S9x_SDL2_ProcessEvents();
@@ -305,7 +308,6 @@ int main(int argc, char **argv) {
     Settings.Stereo = TRUE;
     Settings.SoundPlaybackRate = 32000;
     Settings.SoundInputRate = 32000;
-    Settings.SupportHiRes = TRUE;
     Settings.SoundSync = TRUE;
     Settings.Transparency = TRUE;
     Settings.AutoDisplayMessages = TRUE;
@@ -322,6 +324,16 @@ int main(int argc, char **argv) {
     Settings.CartAName[0] = 0;
     Settings.CartBName[0] = 0;
 
+    Settings.SupportHiRes = FALSE;
+
+    if (Settings.SupportHiRes) {
+        screen_width = SNES_WIDTH;
+        screen_height = SNES_HEIGHT;
+    } else {
+        screen_width = IMAGE_WIDTH;
+        screen_height = IMAGE_HEIGHT;
+    }
+
     CPU.Flags = 0;
 
     //S9xLoadConfigFiles(argv, argc);
@@ -332,8 +344,8 @@ int main(int argc, char **argv) {
     }
     */
 
-    const char *rom_filename = "zelda.zip";
-    //const char *rom_filename = "mario.zip";
+    //const char *rom_filename = "zelda.zip";
+    const char *rom_filename = "mario.zip";
 
     if (!Memory.Init()) {
         fprintf(stderr, "Could not initialize Snes9x Memory.\n");
@@ -392,7 +404,7 @@ int main(int argc, char **argv) {
 
     // Create window
     window = SDL_CreateWindow("Snes9x-SDL2", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                              IMAGE_WIDTH, IMAGE_HEIGHT, SDL_WINDOW_SHOWN);
+                              screen_width, screen_height, SDL_WINDOW_SHOWN);
     if (window == nullptr) {
         fprintf(stderr, "Could not create window: %s\n", SDL_GetError());
         S9xExit();
@@ -406,28 +418,30 @@ int main(int argc, char **argv) {
     }
 
     // Create texture
-    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STATIC, IMAGE_WIDTH, IMAGE_HEIGHT);
+    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STATIC, screen_width,
+                                screen_height);
     if (texture == nullptr) {
         fprintf(stderr, "Could not create texture: %s\n", SDL_GetError());
         S9xExit();
     }
 
-    // Allocate texture pixel buffer
-    texture_pixels = new(std::nothrow) uint16[IMAGE_WIDTH * IMAGE_HEIGHT];
-    if (texture_pixels == nullptr) {
-        fprintf(stderr, "Could not allocate pixel buffer.\n");
-        S9xExit();
+    if (Settings.SupportHiRes) {
+        // Allocate texture pixel buffer
+        texture_pixels = new(std::nothrow) uint16[screen_width * screen_height];
+        if (texture_pixels == nullptr) {
+            fprintf(stderr, "Could not allocate pixel buffer.\n");
+            S9xExit();
+        }
     }
 
     // Allocate snes pixel buffer
-    snes_pixels = new(std::nothrow) uint16[IMAGE_WIDTH * IMAGE_HEIGHT];
+    snes_pixels = new(std::nothrow) uint16[screen_width * screen_height];
     if (snes_pixels == nullptr) {
         fprintf(stderr, "Could not allocate pixel buffer.\n");
         S9xExit();
     }
 
-    // Set up Snes9x GFX
-    GFX.Pitch = IMAGE_WIDTH * 2;
+    GFX.Pitch = (uint32) screen_width * 2;
     GFX.Screen = snes_pixels;
 
     S9xGraphicsInit();
@@ -700,28 +714,32 @@ bool8 S9xDeinitUpdate(int width, int height) {
         S9xBlitClearDelta();
     }
 
-    if (width <= SNES_WIDTH && height > SNES_HEIGHT_EXTENDED) {
-        S9xBlitPixSimple2x1((uint8 *) GFX.Screen, GFX.Pitch, (uint8 *) texture_pixels, GFX.Pitch, width, height);
-    } else if (width <= SNES_WIDTH) {
-        S9xBlitPixSimple2x2((uint8 *) GFX.Screen, GFX.Pitch, (uint8 *) texture_pixels, GFX.Pitch, width, height);
-    } else if (height <= SNES_HEIGHT_EXTENDED) {
-        S9xBlitPixSimple1x2((uint8 *) GFX.Screen, GFX.Pitch, (uint8 *) texture_pixels, GFX.Pitch, width, height);
-    } else {
-        S9xBlitPixSimple1x1((uint8 *) GFX.Screen, GFX.Pitch, (uint8 *) texture_pixels, GFX.Pitch, width, height);
-    }
+    if (Settings.SupportHiRes) {
+        if (width <= SNES_WIDTH && height > SNES_HEIGHT_EXTENDED) {
+            S9xBlitPixSimple2x1((uint8 *) GFX.Screen, GFX.Pitch, (uint8 *) texture_pixels, GFX.Pitch, width, height);
+        } else if (width <= SNES_WIDTH) {
+            S9xBlitPixSimple2x2((uint8 *) GFX.Screen, GFX.Pitch, (uint8 *) texture_pixels, GFX.Pitch, width, height);
+        } else if (height <= SNES_HEIGHT_EXTENDED) {
+            S9xBlitPixSimple1x2((uint8 *) GFX.Screen, GFX.Pitch, (uint8 *) texture_pixels, GFX.Pitch, width, height);
+        } else {
+            S9xBlitPixSimple1x1((uint8 *) GFX.Screen, GFX.Pitch, (uint8 *) texture_pixels, GFX.Pitch, width, height);
+        }
 
-    if (height < prevHeight) {
-        int p = SNES_WIDTH >> 2;
-        for (int y = SNES_HEIGHT * 2; y < SNES_HEIGHT_EXTENDED * 2; y++) {
-            uint32 *d = (uint32 *) (texture_pixels + y * GFX.Pitch);
-            for (int x = 0; x < p; x++) {
-                *d++ = 0;
+        if (height < prevHeight) {
+            int p = SNES_WIDTH >> 2;
+            for (int y = SNES_HEIGHT * 2; y < SNES_HEIGHT_EXTENDED * 2; y++) {
+                uint32 *d = (uint32 *) (texture_pixels + y * GFX.Pitch);
+                for (int x = 0; x < p; x++) {
+                    *d++ = 0;
+                }
             }
         }
-    }
 
-    SDL_UpdateTexture(texture, nullptr, texture_pixels, GFX.Pitch);
-    SDL_RenderClear(renderer);
+        SDL_UpdateTexture(texture, nullptr, texture_pixels, GFX.Pitch);
+    } else {
+        SDL_UpdateTexture(texture, nullptr, snes_pixels, GFX.Pitch);
+    }
+    //SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, texture, nullptr, nullptr);
     SDL_RenderPresent(renderer);
 
