@@ -175,35 +175,9 @@
   Nintendo Co., Limited and its subsidiary companies.
  ***********************************************************************************/
 
-#include <cstdlib>
-#include <unistd.h>
-#include <cctype>
-#include <fcntl.h>
-#include <dirent.h>
-#include <csignal>
-#include <cerrno>
-#include <cstring>
-
-#ifdef HAVE_STRINGS_H
-
-#include <strings.h>
-
-#endif
-
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/types.h>
-
-#ifdef HAVE_SYS_IOCTL_H
-
-#include <sys/ioctl.h>
-
-#endif
-
-#include <chrono>
-#include <thread>
-
 #include <c2d.h>
+
+#include <sys/time.h>
 
 #include "port.h"
 #include "blit.h"
@@ -230,6 +204,24 @@ static Texture *texture;
 
 static int screen_width;
 static int screen_height;
+
+#ifdef __SWITCH__
+
+char *strdup(const char *str) {
+    size_t siz;
+    char *copy;
+    siz = strlen(str) + 1;
+    if ((copy = (char *) malloc(siz)) == NULL)
+        return (NULL);
+    memcpy(copy, str, siz);
+    return (copy);
+}
+
+#define    timercmp(a, b, CMP)             \
+  (((a)->tv_sec == (b)->tv_sec) ?       \
+   ((a)->tv_usec CMP (b)->tv_usec) :    \
+   ((a)->tv_sec CMP (b)->tv_sec))
+#endif
 
 void exit_handler();
 
@@ -273,7 +265,11 @@ int main(int argc, char **argv) {
     Settings.FrameTimeNTSC = 16667;
     Settings.SixteenBitSound = TRUE;
     Settings.Stereo = TRUE;
+#ifdef __SWITCH__
+    Settings.SoundPlaybackRate = 48000;
+#else
     Settings.SoundPlaybackRate = 32000;
+#endif
     Settings.SoundInputRate = 32000;
     Settings.SoundSync = TRUE;
     Settings.Transparency = TRUE;
@@ -434,6 +430,7 @@ bool S9x_SDL2_ProcessEvents() {
 
 void S9xAudioCallback(void *userdata, Uint8 *stream, int len) {
 
+    //printf("S9xAudioCallback\n");
     audio->lock();
     S9xMixSamples(stream, len >> (Settings.SixteenBitSound ? 1 : 0));
     audio->unlock();
@@ -441,6 +438,7 @@ void S9xAudioCallback(void *userdata, Uint8 *stream, int len) {
 
 static void S9xSamplesAvailable(void *data) {
 
+    //printf("S9xSamplesAvailable\n");
     audio->lock();
     S9xFinalizeSamples();
     audio->unlock();
@@ -650,6 +648,8 @@ bool8 S9xDeinitUpdate(int width, int height) {
     static int prevWidth = 0;
     static int prevHeight = 0;
 
+    //printf("S9xDeinitUpdate\n");
+
     if ((width <= SNES_WIDTH) && ((prevWidth != width) || (prevHeight != height))) {
         S9xBlitClearDelta();
     }
@@ -696,66 +696,21 @@ void S9xSyncSpeed() {
 
 #ifndef NOSOUND
     if (Settings.SoundSync) {
-        while (!S9xSyncSound())
+        while (!S9xSyncSound()) {
+            //printf("S9xSyncSound\n");
+#ifdef __SWITCH__
+            svcSleepThread(1);
+#else
             usleep(0);
+#endif
+        }
     }
 #endif
 
     if (Settings.DumpStreams)
         return;
 
-#ifdef NETPLAY_SUPPORT
-    if (Settings.NetPlay && NetPlay.Connected)
-    {
-#if defined(NP_DEBUG) && NP_DEBUG == 2
-        printf("CLIENT: SyncSpeed @%d\n", S9xGetMilliTime());
-#endif
-
-        S9xNPSendJoypadUpdate(old_joypads[0]);
-        for (int J = 0; J < 8; J++)
-            joypads[J] = S9xNPGetJoypad(J);
-
-        if (!S9xNPCheckForHeartBeat())
-        {
-            NetPlay.PendingWait4Sync = !S9xNPWaitForHeartBeatDelay(100);
-#if defined(NP_DEBUG) && NP_DEBUG == 2
-            if (NetPlay.PendingWait4Sync)
-                printf("CLIENT: PendingWait4Sync1 @%d\n", S9xGetMilliTime());
-#endif
-
-            IPPU.RenderThisFrame = TRUE;
-            IPPU.SkippedFrames = 0;
-        }
-        else
-        {
-            NetPlay.PendingWait4Sync = !S9xNPWaitForHeartBeatDelay(200);
-#if defined(NP_DEBUG) && NP_DEBUG == 2
-            if (NetPlay.PendingWait4Sync)
-                printf("CLIENT: PendingWait4Sync2 @%d\n", S9xGetMilliTime());
-#endif
-
-            if (IPPU.SkippedFrames < NetPlay.MaxFrameSkip)
-            {
-                IPPU.RenderThisFrame = FALSE;
-                IPPU.SkippedFrames++;
-            }
-            else
-            {
-                IPPU.RenderThisFrame = TRUE;
-                IPPU.SkippedFrames = 0;
-            }
-        }
-
-        if (!NetPlay.PendingWait4Sync)
-        {
-            NetPlay.FrameCount++;
-            S9xNPStepJoypadHistory();
-        }
-
-        return;
-    }
-#endif
-
+#ifndef __SWITCH__ // TODO
     if (Settings.HighSpeedSeek > 0)
         Settings.HighSpeedSeek--;
 
@@ -809,8 +764,11 @@ void S9xSyncSpeed() {
     while (timercmp(&next1, &now, >)) {
         // If we're ahead of time, sleep a while.
         unsigned timeleft = (next1.tv_sec - now.tv_sec) * 1000000 + next1.tv_usec - now.tv_usec;
+#ifdef __SWITCH__
+        svcSleepThread(timeleft * 1000);
+#else
         usleep(timeleft);
-
+#endif
         while (gettimeofday(&now, NULL) == -1);
         // Continue with a while-loop because usleep() could be interrupted by a signal.
     }
@@ -821,6 +779,7 @@ void S9xSyncSpeed() {
         next1.tv_sec += next1.tv_usec / 1000000;
         next1.tv_usec %= 1000000;
     }
+#endif
 }
 
 /**

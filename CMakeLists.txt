@@ -5,12 +5,12 @@ cmake_minimum_required(VERSION 3.0)
 set(BUILD_SFML OFF CACHE BOOL "Build with SFML support")
 set(BUILD_SDL1 OFF CACHE BOOL "Build with SDL1 support (software, osmesa) support")
 set(BUILD_SDL1_GL OFF CACHE BOOL "Build with SDL1 support (hardware rendering, fast, needs BUILD_SDL1=ON)")
-set(BUILD_SDL2 ON CACHE BOOL "Build with SDL2 (software) support")
-set(BUILD_SDL2_GL ON CACHE BOOL "Build with SDL2 support (hardware rendering, fast, needs BUILD_SDL2=ON)")
+set(BUILD_SDL2 OFF CACHE BOOL "Build with SDL2 (software) support")
+set(BUILD_SDL2_GL OFF CACHE BOOL "Build with SDL2 support (hardware rendering, fast, needs BUILD_SDL2=ON)")
 set(BUILD_PSP2 OFF CACHE BOOL "Build with PSP2 support")
 set(BUILD_PS3 OFF CACHE BOOL "Build with PS3 support")
 set(BUILD_3DS OFF CACHE BOOL "Build with 3DS support")
-set(BUILD_NX OFF CACHE BOOL "Build with NX (SWITCH) support")
+set(BUILD_NX ON CACHE BOOL "Build with NX (SWITCH) support")
 set(BUILD_NX_GL OFF CACHE BOOL "Build with NX (SWITCH) support (software, osmesa)")
 
 option(BUILD_SOUND "Build with audio support" ON)
@@ -46,6 +46,7 @@ set(SNES9X_INC
         apu/bapu/smp
         apu/bapu/snes
         filter
+        cross2d
         )
 
 file(GLOB SNES9X_SRC
@@ -55,6 +56,7 @@ file(GLOB SNES9X_SRC
         apu/bapu/dsp/*.c*
         apu/bapu/smp/*.c*
         filter/*.c*
+        cross2d/*.c*
         )
 
 list(REMOVE_ITEM SNES9X_SRC
@@ -71,7 +73,7 @@ list(REMOVE_ITEM SNES9X_SRC
 set(SNES9X_CFLAGS
         #-O0 -g
         -fomit-frame-pointer -fno-exceptions
-        -fno-rtti -pedantic -Wall -W -Wno-unused-parameter
+        -pedantic -Wall -W -Wno-unused-parameter
         -DHAVE_LIBPNG -DHAVE_MKSTEMP -DHAVE_STRINGS_H
         -DHAVE_SYS_IOCTL_H -DHAVE_STDINT_H -DRIGHTSHIFT_IS_SAR
         -DGFX_MULTI_FORMAT
@@ -85,8 +87,8 @@ set(SNES9X_LDFLAGS
 # OPTIONS
 #####################
 if (BUILD_SOUND)
-    list(APPEND SNES9X_CFLAGS -DUSE_THREADS)
-    list(APPEND SNES9X_LDFLAGS pthread)
+    #list(APPEND SNES9X_CFLAGS -DUSE_THREADS)
+    #list(APPEND SNES9X_LDFLAGS pthread)
 else()
     list(APPEND SNES9X_CFLAGS -DNOSOUND)
 endif (BUILD_SOUND)
@@ -133,10 +135,6 @@ elseif (BUILD_SDL2)
     #####################
     # SDL2 PLATORM
     #####################
-    set(SDL2_INC cross2d)
-    file(GLOB SDL2_SRC cross2d/*.c*)
-    #list(APPEND SNES9X_CFLAGS -D__SDL2__)
-    #list(APPEND SNES9X_LDFLAGS SDL2)
 endif (BUILD_PSP2)
 
 #####################
@@ -145,7 +143,7 @@ endif (BUILD_PSP2)
 add_executable(${CMAKE_PROJECT_NAME}.elf ${SNES9X_SRC} ${UNZIP_SRC} ${JMA_SRC} ${SDL2_SRC})
 target_include_directories(${CMAKE_PROJECT_NAME}.elf PRIVATE ${SNES9X_INC} ${UNZIP_INC} ${JMA_INC} ${SDL2_INC})
 target_compile_options(${CMAKE_PROJECT_NAME}.elf PRIVATE ${SNES9X_CFLAGS})
-target_compile_options(${CMAKE_PROJECT_NAME}.elf PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-std=c++11 -fpermissive>)
+target_compile_options(${CMAKE_PROJECT_NAME}.elf PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-std=c++11 -fpermissive -fno-rtti>)
 target_link_libraries(${CMAKE_PROJECT_NAME}.elf cross2d ${SNES9X_LDFLAGS})
 
 #####################
@@ -161,6 +159,7 @@ endif (BUILD_PSP2)
 # NX (SWITCH) target
 #####################
 if (BUILD_NX)
+    set_target_properties(${CMAKE_PROJECT_NAME}.elf PROPERTIES LINK_FLAGS "-specs=${DEVKITPRO}/libnx/switch.specs")
     add_custom_target(${CMAKE_PROJECT_NAME}.nro
             DEPENDS ${CMAKE_PROJECT_NAME}.elf
             COMMAND elf2nro ${CMAKE_PROJECT_NAME}.elf ${CMAKE_PROJECT_NAME}.nro)
