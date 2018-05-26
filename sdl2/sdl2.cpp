@@ -284,6 +284,7 @@ void exit_handler() {
 }
 
 int main(int argc, char **argv) {
+
     if (argc < 2) {
         //S9xUsage();
     }
@@ -739,6 +740,7 @@ bool8 S9xDeinitUpdate(int width, int height) {
     } else {
         SDL_UpdateTexture(texture, nullptr, snes_pixels, GFX.Pitch);
     }
+
     //SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, texture, nullptr, nullptr);
     SDL_RenderPresent(renderer);
@@ -780,39 +782,6 @@ void S9xAutoSaveSRAM() {
  */
 void S9xSyncSpeed() {
 
-    /*
-    // Sync sound
-    if (Settings.SoundSync) {
-        while (!S9xSyncSound()) {
-            std::this_thread::sleep_for(std::chrono::microseconds(1));
-        }
-    }
-
-    // Initalize nextFrame as now + 1 microsecond
-    static auto nextFrameTime = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(1);
-
-    // Get current time
-    auto now = std::chrono::high_resolution_clock::now();
-
-    unsigned limit = (Settings.SkipFrames == AUTO_FRAMERATE) ? (nextFrameTime < now ? 10 : 1) : Settings.SkipFrames;
-    IPPU.RenderThisFrame = ++IPPU.SkippedFrames >= limit;
-    if (IPPU.RenderThisFrame) {
-        IPPU.SkippedFrames = 0;
-    } else if (nextFrameTime < now) {
-        auto lag = now - nextFrameTime;
-        if (lag >= std::chrono::microseconds(500000)) {
-            nextFrameTime = now;
-        }
-    }
-
-    while (nextFrameTime > now) {
-        auto timeLeft = nextFrameTime - now;
-        std::this_thread::sleep_for(timeLeft);
-        now = std::chrono::high_resolution_clock::now();
-    }
-
-    nextFrameTime = now + std::chrono::microseconds(Settings.FrameTime);
-    */
 #ifndef NOSOUND
     if (Settings.SoundSync) {
         while (!S9xSyncSound())
@@ -974,9 +943,7 @@ void S9xHandlePortCommand(s9xcommand_t cmd, int16 data1, int16 data2) {
  */
 bool8 S9xOpenSoundDevice(void) {
 
-#ifdef NOSOUND
-    return TRUE;
-#else
+#ifndef NOSOUND
 
     SDL_AudioSpec *audiospec = (SDL_AudioSpec *) malloc(sizeof(SDL_AudioSpec));
 
@@ -1002,9 +969,9 @@ bool8 S9xOpenSoundDevice(void) {
 
     S9xSetSamplesAvailableCallback(S9x_SDL2_SamplesAvailable, NULL);
 
-    return TRUE;
-
 #endif
+
+    return TRUE;
 }
 
 /**
