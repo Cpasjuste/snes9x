@@ -203,8 +203,7 @@
 #include <chrono>
 #include <thread>
 
-
-#include <SDL2/SDL.h>
+#include <c2d.h>
 
 #include "port.h"
 #include "blit.h"
@@ -220,15 +219,14 @@
 #include "display.h"
 #include "conffile.h"
 
-static SDL_Window *window = nullptr;
+using namespace c2d;
 
-static SDL_Renderer *renderer = nullptr;
+static Renderer *renderer;
+static Audio *audio;
+static Input *input;
+//static Io *io;
 
-static SDL_Texture *texture = nullptr;
-
-static uint16 *texture_pixels = nullptr;
-
-static uint16 *snes_pixels = nullptr;
+static Texture *texture;
 
 static int screen_width;
 static int screen_height;
@@ -236,8 +234,6 @@ static int screen_height;
 void exit_handler();
 
 bool S9x_SDL2_ProcessEvents();
-
-void S9x_SDL2_AudioCallback(void *userdata, Uint8 *stream, int len);
 
 void exit_handler() {
 
@@ -255,32 +251,7 @@ void exit_handler() {
     S9xDeinitAPU();
     S9xGraphicsDeinit();
 
-    if (snes_pixels != nullptr) {
-        delete[] snes_pixels;
-        snes_pixels = nullptr;
-    }
-
-    if (texture_pixels != nullptr) {
-        delete[] texture_pixels;
-        texture_pixels = nullptr;
-    }
-
-    if (texture != nullptr) {
-        SDL_DestroyTexture(texture);
-        texture = nullptr;
-    }
-
-    if (renderer != nullptr) {
-        SDL_DestroyRenderer(renderer);
-        renderer = nullptr;
-    }
-
-    if (window != nullptr) {
-        SDL_DestroyWindow(window);
-        window = nullptr;
-    }
-
-    SDL_Quit();
+    delete (renderer);
 }
 
 int main(int argc, char **argv) {
@@ -291,11 +262,6 @@ int main(int argc, char **argv) {
 
     printf("Snes9x " VERSION " using SDL2\n");
 
-    // Initialize SDL
-    if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
-        fprintf(stderr, "Could not initialize SDL: %s\n", SDL_GetError());
-        S9xExit();
-    }
     atexit(exit_handler);
 
     memset(&Settings, 0, sizeof(Settings));
@@ -327,7 +293,7 @@ int main(int argc, char **argv) {
 
     Settings.SupportHiRes = FALSE;
 
-    if (Settings.SupportHiRes) {
+    if (!Settings.SupportHiRes) {
         screen_width = SNES_WIDTH;
         screen_height = SNES_HEIGHT;
     } else {
@@ -363,6 +329,7 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
+    // TODO
     S9xUnmapAllControls();
 
     S9xSetController(0, CTL_JOYPAD, 0, 0, 0, 0);
@@ -380,6 +347,7 @@ int main(int argc, char **argv) {
     S9xMapButton(11, S9xGetCommandT("Joypad1 Select"), false);
 
     S9xReportControllers();
+    // TODO
 
     uint32 saved_flags = CPU.Flags;
 
@@ -403,53 +371,15 @@ int main(int argc, char **argv) {
     S9xBlit2xSaIFilterInit();
     S9xBlitHQ2xFilterInit();
 
-    // Create window
-    window = SDL_CreateWindow("Snes9x-SDL2", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                              screen_width, screen_height, SDL_WINDOW_SHOWN);
-    if (window == nullptr) {
-        fprintf(stderr, "Could not create window: %s\n", SDL_GetError());
-        S9xExit();
-    }
+    renderer = (Renderer *) new C2DRenderer(Vector2f(screen_width, screen_height));
+    texture = new C2DTexture(Vector2f(screen_width, screen_height), C2D_TEXTURE_FMT_RGB565);
+    renderer->add(texture);
+    printf("C2DRenderer: %i %i\n", screen_width, screen_height);
 
-    // Create renderer
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
-    if (renderer == nullptr) {
-        fprintf(stderr, "Could not create renderer: %s\n", SDL_GetError());
-        S9xExit();
-    }
-
-    // Create texture
-    texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STATIC, screen_width,
-                                screen_height);
-    if (texture == nullptr) {
-        fprintf(stderr, "Could not create texture: %s\n", SDL_GetError());
-        S9xExit();
-    }
-
-    if (Settings.SupportHiRes) {
-        // Allocate texture pixel buffer
-        texture_pixels = new(std::nothrow) uint16[screen_width * screen_height];
-        if (texture_pixels == nullptr) {
-            fprintf(stderr, "Could not allocate pixel buffer.\n");
-            S9xExit();
-        }
-    }
-
-    // Allocate snes pixel buffer
-    snes_pixels = new(std::nothrow) uint16[screen_width * screen_height];
-    if (snes_pixels == nullptr) {
-        fprintf(stderr, "Could not allocate pixel buffer.\n");
-        S9xExit();
-    }
-
-    GFX.Pitch = (uint32) screen_width * 2;
-    GFX.Screen = snes_pixels;
+    GFX.Pitch = (uint32) texture->pitch;
+    texture->lock(nullptr, reinterpret_cast<void **>(&GFX.Screen), nullptr);
 
     S9xGraphicsInit();
-
-    sprintf(String, "\"%s\" on %s %s using SDL2", Memory.ROMName, TITLE, VERSION);
-    SDL_SetWindowTitle(window, String);
-
     S9xSetSoundMute(FALSE);
 
     // Main loop
@@ -472,6 +402,9 @@ int main(int argc, char **argv) {
  * Handle SDL events. Return true if we should quit.
  */
 bool S9x_SDL2_ProcessEvents() {
+
+    // TODO
+    /*
     SDL_Event event;
 
     while (SDL_PollEvent(&event)) {
@@ -494,22 +427,23 @@ bool S9x_SDL2_ProcessEvents() {
     S9xReportButton(9, currentKeyStates[SDL_SCANCODE_X] == 1);
     S9xReportButton(10, currentKeyStates[SDL_SCANCODE_S] == 1);
     S9xReportButton(11, currentKeyStates[SDL_SCANCODE_A] == 1);
+    */
 
     return false;
 }
 
-void S9x_SDL2_AudioCallback(void *userdata, Uint8 *stream, int len) {
+void S9xAudioCallback(void *userdata, Uint8 *stream, int len) {
 
-    SDL_LockAudio();
+    audio->lock();
     S9xMixSamples(stream, len >> (Settings.SixteenBitSound ? 1 : 0));
-    SDL_UnlockAudio();
+    audio->unlock();
 }
 
-static void S9x_SDL2_SamplesAvailable(void *data) {
+static void S9xSamplesAvailable(void *data) {
 
-    SDL_LockAudio();
+    audio->lock();
     S9xFinalizeSamples();
-    SDL_UnlockAudio();
+    audio->unlock();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -517,6 +451,7 @@ static void S9x_SDL2_SamplesAvailable(void *data) {
 ///////////////////////////////////////////////////////////////////////////////
 
 void _splitpath(const char *path, char *drive, char *dir, char *fname, char *ext) {
+
     *drive = 0;
 
     const char *slash = strrchr(path, SLASH_CHAR);
@@ -553,6 +488,7 @@ void _splitpath(const char *path, char *drive, char *dir, char *fname, char *ext
 }
 
 void _makepath(char *path, const char *, const char *dir, const char *fname, const char *ext) {
+
     if (dir && *dir) {
         strcpy(path, dir);
         strcat(path, SLASH_STR);
@@ -600,6 +536,7 @@ const char *S9xGetDirectory(s9x_getdirtype dirtype) {
  * The current ports return the ROM file path with the given extension.
  */
 const char *S9xGetFilename(const char *ex, s9x_getdirtype dirtype) {
+
     static char s[PATH_MAX + 1];
 
     char drive[_MAX_DRIVE + 1];
@@ -619,6 +556,7 @@ const char *S9xGetFilename(const char *ex, s9x_getdirtype dirtype) {
  * the number of the filename; romname.000.spc, romname.001.spc, ...
  */
 const char *S9xGetFilenameInc(const char *ex, s9x_getdirtype dirtype) {
+
     static char s[PATH_MAX + 1];
 
     char drive[_MAX_DRIVE + 1];
@@ -645,6 +583,7 @@ const char *S9xGetFilenameInc(const char *ex, s9x_getdirtype dirtype) {
  * Typically, extract the filename from path and return it.
  */
 const char *S9xBasename(const char *f) {
+
     const char *p;
 
     if ((p = strrchr(f, '/')) != nullptr || (p = strrchr(f, '\\')) != nullptr)
@@ -715,35 +654,8 @@ bool8 S9xDeinitUpdate(int width, int height) {
         S9xBlitClearDelta();
     }
 
-    if (Settings.SupportHiRes) {
-        if (width <= SNES_WIDTH && height > SNES_HEIGHT_EXTENDED) {
-            S9xBlitPixSimple2x1((uint8 *) GFX.Screen, GFX.Pitch, (uint8 *) texture_pixels, GFX.Pitch, width, height);
-        } else if (width <= SNES_WIDTH) {
-            S9xBlitPixSimple2x2((uint8 *) GFX.Screen, GFX.Pitch, (uint8 *) texture_pixels, GFX.Pitch, width, height);
-        } else if (height <= SNES_HEIGHT_EXTENDED) {
-            S9xBlitPixSimple1x2((uint8 *) GFX.Screen, GFX.Pitch, (uint8 *) texture_pixels, GFX.Pitch, width, height);
-        } else {
-            S9xBlitPixSimple1x1((uint8 *) GFX.Screen, GFX.Pitch, (uint8 *) texture_pixels, GFX.Pitch, width, height);
-        }
-
-        if (height < prevHeight) {
-            int p = SNES_WIDTH >> 2;
-            for (int y = SNES_HEIGHT * 2; y < SNES_HEIGHT_EXTENDED * 2; y++) {
-                uint32 *d = (uint32 *) (texture_pixels + y * GFX.Pitch);
-                for (int x = 0; x < p; x++) {
-                    *d++ = 0;
-                }
-            }
-        }
-
-        SDL_UpdateTexture(texture, nullptr, texture_pixels, GFX.Pitch);
-    } else {
-        SDL_UpdateTexture(texture, nullptr, snes_pixels, GFX.Pitch);
-    }
-
-    //SDL_RenderClear(renderer);
-    SDL_RenderCopy(renderer, texture, nullptr, nullptr);
-    SDL_RenderPresent(renderer);
+    texture->unlock();
+    renderer->flip();
 
     prevWidth = width;
     prevHeight = height;
@@ -944,33 +856,11 @@ void S9xHandlePortCommand(s9xcommand_t cmd, int16 data1, int16 data2) {
 bool8 S9xOpenSoundDevice(void) {
 
 #ifndef NOSOUND
-
-    SDL_AudioSpec *audiospec = (SDL_AudioSpec *) malloc(sizeof(SDL_AudioSpec));
-
-    audiospec->freq = Settings.SoundPlaybackRate;
-    audiospec->channels = Settings.Stereo ? 2 : 1;
-    audiospec->format = Settings.SixteenBitSound ? AUDIO_S16SYS : AUDIO_U8;
-    audiospec->samples = (100 * audiospec->freq / 1000) >> 1;
-    audiospec->callback = S9x_SDL2_AudioCallback;
-
-    printf("SDL sound driver initializing...\n");
-    printf("    --> (Frequency: %dhz, Latency: %dms)...",
-           audiospec->freq,
-           (audiospec->samples * 1000 / audiospec->freq) << 1);
-
-    if (SDL_OpenAudio(audiospec, NULL) < 0) {
-        printf("Failed\n");
-        free(audiospec);
-        return FALSE;
-    }
-    printf("OK\n");
-
-    SDL_PauseAudio(0);
-
-    S9xSetSamplesAvailableCallback(S9x_SDL2_SamplesAvailable, NULL);
-
+    printf("S9xOpenSoundDevice\n");
+    audio = new C2DAudio(Settings.SoundPlaybackRate, 60, S9xAudioCallback);
+    audio->pause(0);
+    S9xSetSamplesAvailableCallback(S9xSamplesAvailable, NULL);
 #endif
-
     return TRUE;
 }
 

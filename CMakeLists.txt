@@ -2,10 +2,16 @@ cmake_minimum_required(VERSION 3.0)
 #set(CMAKE_VERBOSE_MAKEFILE ON)
 
 # delete cmake cache folder before changing this options
-option(BUILD_SDL2 "Build with SDL2 support" ON)
-option(BUILD_UNIX "Build with UNIX/X11 support" OFF)
-option(BUILD_PSP2 "Build with PSP2 support" OFF)
-option(BUILD_NX "Build with NX (SWITCH) support" OFF)
+set(BUILD_SFML OFF CACHE BOOL "Build with SFML support")
+set(BUILD_SDL1 OFF CACHE BOOL "Build with SDL1 support (software, osmesa) support")
+set(BUILD_SDL1_GL OFF CACHE BOOL "Build with SDL1 support (hardware rendering, fast, needs BUILD_SDL1=ON)")
+set(BUILD_SDL2 ON CACHE BOOL "Build with SDL2 (software) support")
+set(BUILD_SDL2_GL ON CACHE BOOL "Build with SDL2 support (hardware rendering, fast, needs BUILD_SDL2=ON)")
+set(BUILD_PSP2 OFF CACHE BOOL "Build with PSP2 support")
+set(BUILD_PS3 OFF CACHE BOOL "Build with PS3 support")
+set(BUILD_3DS OFF CACHE BOOL "Build with 3DS support")
+set(BUILD_NX OFF CACHE BOOL "Build with NX (SWITCH) support")
+set(BUILD_NX_GL OFF CACHE BOOL "Build with NX (SWITCH) support (software, osmesa)")
 
 option(BUILD_SOUND "Build with audio support" ON)
 option(BUILD_SCREENSHOT "Build with screenshot support" ON)
@@ -21,7 +27,11 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif ()
 
 # setup toolchain
-include(CMakeListsToolchain.cmake)
+include(cross2d/libcross2d/Toolchain.cmake)
+
+# add cross2d library. If you want to port pfba to another platform,
+# you should (may) only need to port this library.
+add_subdirectory(cross2d/libcross2d)
 
 project(snes9x)
 
@@ -59,9 +69,8 @@ list(REMOVE_ITEM SNES9X_SRC
         )
 
 set(SNES9X_CFLAGS
-        #-O3
         #-O0 -g
-        -fomit-frame-pointer -std=c++11 -fno-exceptions
+        -fomit-frame-pointer -fno-exceptions
         -fno-rtti -pedantic -Wall -W -Wno-unused-parameter
         -DHAVE_LIBPNG -DHAVE_MKSTEMP -DHAVE_STRINGS_H
         -DHAVE_SYS_IOCTL_H -DHAVE_STDINT_H -DRIGHTSHIFT_IS_SAR
@@ -115,35 +124,29 @@ endif (BUILD_DEBUGGER)
 if (BUILD_PSP2)
     #####################
     # PSP2 PLATORM
+    #####################
 elseif (BUILD_NX)
     #####################
     # NX PLATORM
     #####################
-elseif (BUILD_UNIX)
-    #####################
-    # UNIX PLATORM
-    #####################
-    set(UNIX_INC unix)
-    file(GLOB UNIX_SRC unix/*.c*)
-    list(APPEND SNES9X_CFLAGS -DUSE_XVIDEO -DUSE_XINERAMA -DMITSHM)
-    list(APPEND SNES9X_LDFLAGS X11 Xext Xv Xinerama)
 elseif (BUILD_SDL2)
     #####################
     # SDL2 PLATORM
     #####################
-    set(SDL2_INC sdl2)
-    file(GLOB SDL2_SRC sdl2/*.c*)
-    list(APPEND SNES9X_CFLAGS -D__SDL2__)
-    list(APPEND SNES9X_LDFLAGS SDL2)
+    set(SDL2_INC cross2d)
+    file(GLOB SDL2_SRC cross2d/*.c*)
+    #list(APPEND SNES9X_CFLAGS -D__SDL2__)
+    #list(APPEND SNES9X_LDFLAGS SDL2)
 endif (BUILD_PSP2)
 
 #####################
 # snes9x executable
 #####################
-add_executable(${CMAKE_PROJECT_NAME}.elf ${SNES9X_SRC} ${UNZIP_SRC} ${JMA_SRC} ${SDL2_SRC} ${UNIX_SRC})
-target_include_directories(${CMAKE_PROJECT_NAME}.elf PRIVATE ${SNES9X_INC} ${UNZIP_INC} ${JMA_INC} ${SDL2_INC} ${UNIX_INC})
+add_executable(${CMAKE_PROJECT_NAME}.elf ${SNES9X_SRC} ${UNZIP_SRC} ${JMA_SRC} ${SDL2_SRC})
+target_include_directories(${CMAKE_PROJECT_NAME}.elf PRIVATE ${SNES9X_INC} ${UNZIP_INC} ${JMA_INC} ${SDL2_INC})
 target_compile_options(${CMAKE_PROJECT_NAME}.elf PRIVATE ${SNES9X_CFLAGS})
-target_link_libraries(${CMAKE_PROJECT_NAME}.elf ${SNES9X_LDFLAGS})
+target_compile_options(${CMAKE_PROJECT_NAME}.elf PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-std=c++11 -fpermissive>)
+target_link_libraries(${CMAKE_PROJECT_NAME}.elf cross2d ${SNES9X_LDFLAGS})
 
 #####################
 # PSP2 (vita) target

@@ -4,3 +4,6 @@
 [submodule "win32/zlib/src"]
 	path = win32/zlib/src
 	url = https://github.com/madler/zlib.git
+[submodule "cross2d/libcross2d"]
+	path = cross2d/libcross2d
+	url = git@github.com:Cpasjuste/libcross2d.git
