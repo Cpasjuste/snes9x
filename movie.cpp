@@ -563,8 +563,10 @@ static void truncate_movie (void)
 	if (Movie.SaveStateOffset > Movie.ControllerDataOffset)
 		return;
 
+#ifndef __SWITCH__ // TODO
 	int	ignore;
 	ignore = ftruncate(fileno(Movie.File), Movie.ControllerDataOffset + Movie.BytesPerSample * (Movie.MaxSample + 1));
+#endif
 }
 
 static int read_movie_header (FILE *fd, SMovie *movie)
@@ -778,6 +780,9 @@ int S9xMovieUnfreeze (uint8 *buf, uint32 size)
 
 int S9xMovieOpen (const char *filename, bool8 read_only)
 {
+#ifdef __SWITCH__ // TODO
+	return (-1);
+#else
 	FILE	*fd;
 	STREAM	stream;
 	int		result;
@@ -872,6 +877,7 @@ int S9xMovieOpen (const char *filename, bool8 read_only)
 	S9xMessage(S9X_INFO, S9X_MOVIE_INFO, MOVIE_INFO_REPLAY);
 
 	return (SUCCESS);
+#endif
 }
 
 int S9xMovieCreate (const char *filename, uint8 controllers_mask, uint8 opts, const wchar_t *metadata, int metadata_length)
