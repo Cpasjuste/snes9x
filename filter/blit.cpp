@@ -13,8 +13,9 @@
 #define qlowPixelMask	((RGB_HI_BITS_MASK >> 3) | TWO_LOW_BITS_MASK)
 #define highBitsMask	(ALL_COLOR_MASK & RGB_REMOVE_LOW_BITS_MASK)
 #define colorMask		(((~RGB_HI_BITS_MASK & ALL_COLOR_MASK) << 16) | (~RGB_HI_BITS_MASK & ALL_COLOR_MASK))
-
+#ifdef __SOFT_SCALERS__
 static snes_ntsc_t	*ntsc   = NULL;
+#endif
 static uint8		*XDelta = NULL;
 
 
@@ -46,7 +47,7 @@ void S9xBlitClearDelta (void)
 		for (int x = 0; x < SNES_WIDTH; x++)
 			*d++ = 0x80008000;
 }
-
+#ifdef __SOFT_SCALERS__
 bool8 S9xBlitNTSCFilterInit (void)
 {
 	ntsc = (snes_ntsc_t *) malloc(sizeof(snes_ntsc_t));
@@ -70,7 +71,7 @@ void S9xBlitNTSCFilterSet (const snes_ntsc_setup_t *setup)
 {
 	snes_ntsc_init(ntsc, setup);
 }
-
+#endif
 void S9xBlitPixSimple1x1 (uint8 *srcPtr, int srcRowBytes, uint8 *dstPtr, int dstRowBytes, int width, int height)
 {
 	width <<= 1;
@@ -165,7 +166,7 @@ void S9xBlitPixSimple2x2 (uint8 *srcPtr, int srcRowBytes, uint8 *dstPtr, int dst
 		dstPtr2  += dstRowBytes;
 	}
 }
-
+#ifdef __SOFT_SCALERS__
 void S9xBlitPixBlend1x1 (uint8 *srcPtr, int srcRowBytes, uint8 *dstPtr, int dstRowBytes, int width, int height)
 {
 	for (; height; height--)
@@ -527,3 +528,4 @@ void S9xBlitPixHiResNTSC16 (uint8 *srcPtr, int srcRowBytes, uint8 *dstPtr, int d
 {
 	snes_ntsc_blit_hires(ntsc, (SNES_NTSC_IN_T const *) srcPtr, srcRowBytes >> 1, 0, width, height, dstPtr, dstRowBytes);
 }
+#endif

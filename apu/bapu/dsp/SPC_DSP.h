@@ -4,6 +4,10 @@
 #ifndef SPC_DSP_H
 #define SPC_DSP_H
 
+#ifdef __PSNES__
+#include <apu/resampler.h>
+#include <msu1.h>
+#endif
 #include "blargg_common.h"
 
 extern "C" { typedef void (*dsp_copy_func_t)( unsigned char** io, void* state, size_t ); }
