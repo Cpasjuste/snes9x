@@ -53,9 +53,6 @@ class Snes9xWindow : public GtkBuilderWindow
 
         /* GTK-base-related functions */
         void show ();
-        void show_status_message (const char *message);
-        void update_statusbar ();
-        void toggle_statusbar ();
         void set_menu_item_selected (const char *name);
         void set_mouseable_area (int x, int y, int width, int height);
         void set_menu_item_accel_to_binding (const char *name,
@@ -66,6 +63,7 @@ class Snes9xWindow : public GtkBuilderWindow
         void resize_to_multiple (int factor);
         void resize_viewport (int width, int height);
         void expose ();
+        void setup_splash();
         double get_refresh_rate ();
         int get_auto_input_rate ();
 
