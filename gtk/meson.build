@@ -93,16 +93,18 @@ endif
 
 if slang and opengl
   glslang_dep = c_compiler.find_library('glslang', required: false)
+  hlsl_dep = c_compiler.find_library('HLSL', required: false)
   spirv_dep = c_compiler.find_library('SPIRV', required: false)
   osdependent_dep = c_compiler.find_library('OSDependent', required: false)
   ogl_compiler_dep = c_compiler.find_library('OGLCompiler', required: false)
   spv_remapper_dep = c_compiler.find_library('SPVRemapper', required: false)
-  resource_limits_dep = c_compiler.find_library('glslang-default-resource-limits', required:false)
 
-  if glslang_dep.found() and spirv_dep.found() and osdependent_dep.found() and ogl_compiler_dep.found() and spv_remapper_dep.found() and resource_limits_dep.found()
-    deps += [glslang_dep, spirv_dep, osdependent_dep, ogl_compiler_dep, spv_remapper_dep, resource_limits_dep]
+  if glslang_dep.found() and hlsl_dep.found() and spirv_dep.found() and osdependent_dep.found() and ogl_compiler_dep.found() and spv_remapper_dep.found()
+    deps += [glslang_dep, hlsl_dep, spirv_dep, osdependent_dep, ogl_compiler_dep, spv_remapper_dep]
 
-    args += ['-DUSE_SLANG', '-DSPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS']
+    args += ['-DUSE_SLANG',
+             '-DSPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS',
+             '-I' + join_paths(prefix, 'include', 'glslang')]
     srcs += ['../shaders/slang.cpp']
     srcs += ['../shaders/SPIRV-Cross/spirv_cfg.cpp',
              '../shaders/SPIRV-Cross/spirv_cfg.hpp',
@@ -350,6 +352,9 @@ srcs += [
  '../debug.cpp',
  '../sdd1.cpp',
  '../tile.cpp',
+ '../tileimpl-n1x1.cpp',
+ '../tileimpl-n2x1.cpp',
+ '../tileimpl-h2x1.cpp',
  '../srtc.cpp',
  '../gfx.cpp',
  '../memmap.cpp',
@@ -380,7 +385,9 @@ srcs += [
  'src/gtk_netplay_dialog.cpp',
  'src/gtk_netplay_dialog.h',
  'src/gtk_netplay.cpp',
- 'src/gtk_netplay.h'
+ 'src/gtk_netplay.h',
+ 'src/background_particles.cpp',
+ 'src/background_particles.h'
 ]
 
 libjma_srcs = [
@@ -401,7 +408,7 @@ libjma = static_library('jma',
                         cpp_args: [args, '-fexceptions'],
                         include_directories: include_directories(includes))
 
-sourcify = executable('sourcify', 'src/sourcify.c')
+sourcify = executable('sourcify', 'src/sourcify.c', native: true)
 gtk_snes9x_ui_cpp = custom_target('sourcify', 
                                   input: 'src/snes9x.ui', 
                                   output: 'gtk_snes9x_ui.cpp',

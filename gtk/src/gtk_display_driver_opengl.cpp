@@ -74,12 +74,11 @@ static void S9xViewportCallback (int src_width, int src_height,
                                  int *out_x, int *out_y,
                                  int *out_width, int *out_height)
 {
-
-    S9xApplyAspect (src_width, src_height, viewport_width, viewport_height);
-    *out_x = src_width + viewport_x;
-    *out_y = src_height + viewport_y;
-    *out_width = viewport_width;
-    *out_height = viewport_height;
+    S9xRect dst = S9xApplyAspect(src_width, src_height, viewport_width, viewport_height);
+    *out_x = dst.x + viewport_x;
+    *out_y = dst.y + viewport_y;
+    *out_width = dst.w;
+    *out_height = dst.h;
 }
 
 S9xOpenGLDisplayDriver::S9xOpenGLDisplayDriver (Snes9xWindow *window,
@@ -95,7 +94,6 @@ void S9xOpenGLDisplayDriver::update (int width, int height, int yoffset)
     uint8 *final_buffer = NULL;
     int   final_pitch;
     void  *pbo_map = NULL;
-    int   x, y, w, h;
 
     GtkAllocation allocation;
     gtk_widget_get_allocation (drawing_area, &allocation);
@@ -153,14 +151,9 @@ void S9xOpenGLDisplayDriver::update (int width, int height, int yoffset)
         final_buffer += (final_pitch * yoffset);
     }
 
-    x = width;
-    y = height;
-    w = allocation.width;
-    h = allocation.height;
-    S9xApplyAspect (x, y, w, h);
-
-    glViewport (x, allocation.height - y - h, w, h);
-    window->set_mouseable_area (x, y, w, h);
+    S9xRect r = S9xApplyAspect(width, height, allocation.width, allocation.height);
+    glViewport (r.x, allocation.height - r.y - r.h, r.w, r.h);
+    window->set_mouseable_area (r.x, r.y, r.w, r.h);
 
     update_texture_size (width, height);
 
@@ -263,7 +256,7 @@ void S9xOpenGLDisplayDriver::update (int width, int height, int yoffset)
 
     if (using_glsl_shaders)
     {
-        glsl_shader->render (texmap, width, height, x, allocation.height - y - h, w, h, S9xViewportCallback);
+        glsl_shader->render (texmap, width, height, r.x, allocation.height - r.y - r.h, r.w, r.h, S9xViewportCallback);
         swap_buffers ();
         return;
     }
@@ -625,13 +618,13 @@ int S9xOpenGLDisplayDriver::init ()
         return -1;
     }
 
-    buffer[0] = malloc (image_padded_size);
-    buffer[1] = malloc (scaled_padded_size);
+    buffer[0] = new uint8_t[image_padded_size];
+    buffer[1] = new uint8_t[scaled_padded_size];
 
     clear_buffers ();
 
-    padded_buffer[0] = (void *) (((uint8 *) buffer[0]) + image_padded_offset);
-    padded_buffer[1] = (void *) (((uint8 *) buffer[1]) + scaled_padded_offset);
+    padded_buffer[0] = &buffer[0][image_padded_offset];
+    padded_buffer[1] = &buffer[1][scaled_padded_offset];
 
     GFX.Screen = (uint16 *) padded_buffer[0];
     GFX.Pitch = image_width * image_bpp;
@@ -687,8 +680,8 @@ void S9xOpenGLDisplayDriver::deinit ()
     padded_buffer[0] = NULL;
     padded_buffer[1] = NULL;
 
-    free (buffer[0]);
-    free (buffer[1]);
+    delete[] buffer[0];
+    delete[] buffer[1];
 
     if (using_pbos)
     {

@@ -247,6 +247,7 @@ struct SSettings
 	uint8	BG_Forced;
 	bool8	DisableGraphicWindows;
 
+	bool8	DisplayTime;
 	bool8	DisplayFrameRate;
 	bool8	DisplayWatchedAddresses;
 	bool8	DisplayPressedKeys;
@@ -297,13 +298,16 @@ struct SSettings
 	bool8	ApplyCheats;
 	bool8	NoPatch;
 	bool8	IgnorePatchChecksum;
+	bool8	IsPatched;
 	int32	AutoSaveDelay;
 	bool8	DontSaveOopsSnapshot;
 	bool8	UpAndDown;
 
 	bool8	OpenGLEnable;
 
+    bool8   SeparateEchoBuffer;
 	uint32	SuperFXClockMultiplier;
+    int OverclockMode;
 	int	OneClockCycle;
 	int	OneSlowClockCycle;
 	int	TwoClockCycles;

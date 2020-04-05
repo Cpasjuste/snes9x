@@ -22,6 +22,7 @@
 
 static S9xDisplayDriver  *driver;
 static snes_ntsc_t       snes_ntsc;
+static int               burst_phase = 0;
 static thread_job_t      job[8];
 static GThreadPool       *pool;
 static uint8             *y_table, *u_table, *v_table;
@@ -84,47 +85,47 @@ double S9xGetAspect ()
     return aspect;
 }
 
-void S9xApplyAspect (int &s_width,  /* Output: x */
-                     int &s_height, /* Output: y */
-                     int &d_width,  /* Output: width */
-                     int &d_height) /* Output: height */
+S9xRect S9xApplyAspect (int src_width,
+                        int src_height,
+                        int dst_width,
+                        int dst_height)
 {
-    double screen_aspect = (double) d_width / (double) d_height;
+    double screen_aspect = (double)dst_width / (double)dst_height;
     double snes_aspect = S9xGetAspect ();
     bool   integer = gui_config->aspect_ratio & 1;
-    double granularity = 1.0 / (double) MAX (d_width, d_height);
+    double granularity = 1.0 / (double)MAX(dst_width, dst_height);
     int x, y, w, h;
 
     if (!gui_config->scale_to_fit)
     {
         if (gui_config->maintain_aspect_ratio)
         {
-            w = s_height * snes_aspect + 0.5;
-            h = s_height;
-            x = (d_width - w) / 2;
-            y = (d_height - s_height) / 2;
+            w = src_height * snes_aspect + 0.5;
+            h = src_height;
+            x = (dst_width - w) / 2;
+            y = (dst_height - src_height) / 2;
         }
         else
         {
-            w = s_width;
-            h = s_height;
-            x = (d_width - w) / 2;
-            y = (d_height - h) / 2;
+            w = src_width;
+            h = src_height;
+            x = (dst_width - w) / 2;
+            y = (dst_height - h) / 2;
 
         }
     }
     else if (gui_config->maintain_aspect_ratio && integer)
     {
-        for (h = s_height * 2; h <= d_height && (int)(h * (snes_aspect) + 0.5) <= d_width; h += s_height) {}
-        h -= s_height;
+        for (h = src_height * 2; h <= dst_height && (int)(h * (snes_aspect) + 0.5) <= dst_width; h += src_height) {}
+        h -= src_height;
         w = h * snes_aspect + 0.5;
-        x = (d_width  - w) / 2;
-        y = (d_height - h) / 2;
+        x = (dst_width  - w) / 2;
+        y = (dst_height - h) / 2;
 
-        if (w > d_width || h > d_height)
+        if (w > dst_width || h > dst_height)
         {
-            w = d_width;
-            h = d_height;
+            w = dst_width;
+            h = dst_height;
             x = 0;
             y = 0;
         }
@@ -135,17 +136,17 @@ void S9xApplyAspect (int &s_width,  /* Output: x */
     {
         if (screen_aspect > snes_aspect)
         {
-            w = d_height * snes_aspect + 0.5;
-            h = d_height;
-            x = (d_width - w) / 2;
+            w = dst_height * snes_aspect + 0.5;
+            h = dst_height;
+            x = (dst_width - w) / 2;
             y = 0;
         }
         else
         {
-            w = d_width;
-            h = d_width / snes_aspect + 0.5;
+            w = dst_width;
+            h = dst_width / snes_aspect + 0.5;
             x = 0;
-            y = (d_height - h) / 2;
+            y = (dst_height - h) / 2;
 
         }
     }
@@ -154,14 +155,11 @@ void S9xApplyAspect (int &s_width,  /* Output: x */
     {
         x = 0;
         y = 0;
-        w = d_width;
-        h = d_height;
+        w = dst_width;
+        h = dst_height;
     }
 
-    s_width = x;
-    s_height = y;
-    d_width = w;
-    d_height = h;
+    return { x, y, w, h };
 }
 
 void S9xRegisterYUVTables (uint8 *y, uint8 *u, uint8 *v)
@@ -1004,7 +1002,7 @@ static void internal_filter (uint8 *src_buffer,
             snes_ntsc_blit_hires_scanlines (&snes_ntsc,
                                             (SNES_NTSC_IN_T *) src_buffer,
                                             src_pitch >> 1,
-                                            0, /* Burst_phase */
+                                            burst_phase,
                                             width,
                                             height,
                                             (void *) dst_buffer,
@@ -1013,7 +1011,7 @@ static void internal_filter (uint8 *src_buffer,
             snes_ntsc_blit_scanlines (&snes_ntsc,
                                       (SNES_NTSC_IN_T *) src_buffer,
                                       src_pitch >> 1,
-                                      0, /* Burst_phase */
+                                      burst_phase,
                                       width,
                                       height,
                                       (void *) dst_buffer,
@@ -1233,7 +1231,7 @@ void S9xFilter (uint8 *src_buffer,
                 int   &width,
                 int   &height)
 {
-
+    burst_phase = (burst_phase + 1) % 3;
     if (gui_config->multithreading)
         internal_threaded_filter (src_buffer,
                                   src_pitch,
@@ -1536,10 +1534,10 @@ void S9xDeinitDisplay ()
 
 void S9xReinitDisplay ()
 {
-    uint16 *buffer = NULL;
-    int    width, height;
+    uint8_t *buffer = NULL;
+    int     width, height;
 
-    buffer = (uint16 *) malloc (S9xDisplayDriver::image_size);
+    buffer = new uint8_t[S9xDisplayDriver::image_size];
     memmove (buffer,
              driver->get_current_buffer (),
              S9xDisplayDriver::image_size);
@@ -1554,9 +1552,9 @@ void S9xReinitDisplay ()
     top_level->last_width = width;
     top_level->last_height = height;
 
-    driver->push_buffer (buffer);
+    driver->push_buffer ((uint16_t *)buffer);
 
-    free (buffer);
+    delete[] buffer;
 }
 
 bool8 S9xContinueUpdate (int width, int height)

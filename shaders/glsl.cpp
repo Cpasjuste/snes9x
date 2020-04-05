@@ -268,6 +268,7 @@ static std::string canonicalize(const std::string &noncanonical)
     return filename_string;
 }
 
+#ifdef USE_SLANG
 static GLuint string_to_format(char *format)
 {
 #define MATCH(s, f)                                                            \
@@ -306,6 +307,7 @@ static GLuint string_to_format(char *format)
 
     return GL_RGBA;
 }
+#endif
 
 // filename must be canonical
 void GLSLShader::read_shader_file_with_includes(std::string filename,
@@ -824,6 +826,14 @@ void GLSLShader::render(GLuint &orig,
                 filter = GL_NEAREST;
         }
 
+        if (pass[i].mipmap_input)
+        {
+            if (filter == GL_LINEAR)
+                filter = GL_LINEAR_MIPMAP_LINEAR;
+            else
+                filter = GL_NEAREST_MIPMAP_NEAREST;
+        }
+
         glBindTexture(GL_TEXTURE_2D, pass[i - 1].texture);
         glPixelStorei(GL_UNPACK_ROW_LENGTH, (GLint) pass[i - 1].width);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
@@ -1181,20 +1191,27 @@ void GLSLShader::save(const char *filename)
             outs("filter_linear", p->filter == GL_LINEAR ? "true" : "false");
         }
         outs("wrap_mode", wrap_mode_enum_to_string(p->wrap_mode));
-        outs("alias", p->alias);
+        if (p->alias[0])
+            outs("alias", p->alias);
         outs("float_framebuffer", p->fp ? "true" : "false");
         outs("srgb_framebuffer", p->srgb ? "true" : "false");
-        outs("scale_type_x", scale_enum_to_string(p->scale_type_x));
-        if (p->scale_type_x == GLSL_ABSOLUTE)
-            outd("scale_x", (int)p->scale_x);
-        else
-            outf("scale_x", p->scale_x);
-
-        outs("scale_type_y", scale_enum_to_string(p->scale_type_y));
-        if (p->scale_type_y == GLSL_ABSOLUTE)
-            outd("scale_y", (int)p->scale_y);
-        else
-            outf("scale_y", p->scale_y);
+        outs("mipmap_input", p->mipmap_input ? "true" : "false");
+        if (p->scale_type_x != GLSL_UNDEFINED)
+        {
+            outs("scale_type_x", scale_enum_to_string(p->scale_type_x));
+            if (p->scale_type_x == GLSL_ABSOLUTE)
+                outd("scale_x", (int)p->scale_x);
+            else
+                outf("scale_x", p->scale_x);
+        }
+        if (p->scale_type_y != GLSL_UNDEFINED)
+        {
+            outs("scale_type_y", scale_enum_to_string(p->scale_type_y));
+            if (p->scale_type_y == GLSL_ABSOLUTE)
+                outd("scale_y", (int)p->scale_y);
+            else
+                outf("scale_y", p->scale_y);
+        }
 
         if (p->frame_count_mod)
             outd("frame_count_mod", p->frame_count_mod);

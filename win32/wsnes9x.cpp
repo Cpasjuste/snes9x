@@ -35,6 +35,7 @@
 #include "CCGShader.h"
 #include "../shaders/glsl.h"
 #include "CShaderParamDlg.h"
+#include "CSaveLoadWithPreviewDlg.h"
 #include "../snes9x.h"
 #include "../memmap.h"
 #include "../cpuexec.h"
@@ -92,6 +93,7 @@ INT_PTR CALLBACK DlgSoundConf(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam)
 INT_PTR CALLBACK DlgInfoProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam);
 INT_PTR CALLBACK DlgAboutProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam);
 INT_PTR CALLBACK DlgEmulatorProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam);
+INT_PTR CALLBACK DlgEmulatorHacksProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam);
 
 INT_PTR CALLBACK DlgOpenROMProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam);
 INT_PTR CALLBACK DlgMultiROMProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -123,6 +125,8 @@ void S9xDetectJoypads();
 
 #define TIMER_SCANJOYPADS  (99999)
 #define NC_SEARCHDB 0x8000
+
+#define MAX_SWITCHABLE_HOTKEY_DIALOG_ITEMS 14
 
 #ifdef UNICODE
 #define S9XW_SHARD_PATH SHARD_PATHW
@@ -366,16 +370,17 @@ struct SCustomKeys CustomKeys = {
 	{0,0}, // slot minus (disabled by default)
 	{0,0}, // slot save (disabled by default)
 	{0,0}, // slot load (disabled by default)
+	{0,0}, // bank plus (disabled by default)
+	{0,0}, // bank minus (disabled by default)
+    {VK_F11,CUSTKEY_SHIFT_MASK}, // dialog save
+    {VK_F11,0}, // dialog load
 	{0,0}, // background layer 1
 	{0,0}, // background layer 2
 	{0,0}, // background layer 3
 	{0,0}, // background layer 4
 	{0,0}, // sprite layer
 	{0,0}, // Clipping Windows
-//	{'8',0}, // BG Layering hack
 	{0,0}, // Transparency
-//	{'6',CUSTKEY_SHIFT_MASK}, // GLCube Mode
-//	{'9',CUSTKEY_SHIFT_MASK}, // Interpolate Mode 7
 	{'6',0}, // Joypad Swap
 	{'7',0}, // Switch Controllers
 	{VK_NEXT,CUSTKEY_SHIFT_MASK}, // Turbo A
@@ -400,7 +405,7 @@ struct SCustomKeys CustomKeys = {
 	 {0,0}, // Select save slot 7
 	 {0,0}, // Select save slot 8
 	 {0,0}}, // Select save slot 9
-	{'R',CUSTKEY_CTRL_MASK|CUSTKEY_SHIFT_MASK}, // Reset Game
+	{'R',CUSTKEY_CTRL_MASK|CUSTKEY_ALT_MASK}, // Reset Game
 	{0,0}, // Toggle Cheats
 	{0,0},
     {'R',0}, // Rewind
@@ -449,7 +454,8 @@ struct OpenMovieParams
 	wchar_t Metadata[MOVIE_MAX_METADATA];
 };
 
-
+TCHAR g_bankMenuItemStrings[NUM_SAVE_BANKS][20];
+TCHAR g_saveMenuItemStrings[NUM_SAVE_BANKS * SAVE_SLOTS_PER_BANK][20];
 
 StateManager stateMan;
 
@@ -461,9 +467,6 @@ void DoAVIOpen(const TCHAR* filename);
 void DoAVIClose(int reason);
 void RestoreGUIDisplay ();
 void RestoreSNESDisplay ();
-void FreezeUnfreezeDialog(bool8 freeze);
-void FreezeUnfreezeSlot(int slot, bool8 freeze);
-void FreezeUnfreeze (const char *filename, bool8 freeze);
 void CheckDirectoryIsWritable (const char *filename);
 static void CheckMenuStates ();
 static void ResetFrameTimer ();
@@ -533,6 +536,17 @@ BOOL PostMenuCommand (UINT uID)
 		return PostMessage(GUI.hWnd, WM_COMMAND, (WPARAM)(uID),(LPARAM)(NULL));
 	else
 		return FALSE;
+}
+
+HMENU GetSubMenuById(UINT uID)
+{
+	MENUITEMINFO mii;
+
+	mii.cbSize = sizeof(mii);
+	mii.fMask = MIIM_SUBMENU;
+	if (!GetMenuItemInfo(GUI.hMenu, uID, FALSE, &mii))
+		return NULL;
+	return mii.hSubMenu;
 }
 
 void S9xMouseOn ()
@@ -829,18 +843,18 @@ int HandleKeyMessage(WPARAM wParam, LPARAM lParam)
 			modifiers |= CUSTKEY_SHIFT_MASK;
 
 		{
-			for(int i = 0 ; i < 10 ; i++)
+			for(int i = 0 ; i < SAVE_SLOTS_PER_BANK; i++)
 			{
 				if(wParam == CustomKeys.Save[i].key
 				&& modifiers == CustomKeys.Save[i].modifiers)
 				{
-					FreezeUnfreezeSlot (i, true);
+					FreezeUnfreezeSlot (GUI.CurrentSaveBank * SAVE_SLOTS_PER_BANK + i, true);
 					hitHotKey = true;
 				}
 				if(wParam == CustomKeys.Load[i].key
 				&& modifiers == CustomKeys.Load[i].modifiers)
 				{
-					FreezeUnfreezeSlot (i, false);
+					FreezeUnfreezeSlot (GUI.CurrentSaveBank * SAVE_SLOTS_PER_BANK + i, false);
 					hitHotKey = true;
 				}
 			}
@@ -857,11 +871,23 @@ int HandleKeyMessage(WPARAM wParam, LPARAM lParam)
 				FreezeUnfreezeSlot (GUI.CurrentSaveSlot, false);
 				hitHotKey = true;
 			}
+            if(wParam == CustomKeys.DialogSave.key
+                && modifiers == CustomKeys.DialogSave.modifiers)
+            {
+                FreezeUnfreezeDialogPreview(true);
+                hitHotKey = true;
+            }
+            if(wParam == CustomKeys.DialogLoad.key
+                && modifiers == CustomKeys.DialogLoad.modifiers)
+            {
+                FreezeUnfreezeDialogPreview(false);
+                hitHotKey = true;
+            }
 			if(wParam == CustomKeys.SlotPlus.key
 			&& modifiers == CustomKeys.SlotPlus.modifiers)
 			{
 				GUI.CurrentSaveSlot++;
-				if(GUI.CurrentSaveSlot > 9)
+				if(GUI.CurrentSaveSlot > LAST_SAVE_SLOT_IN_BANK)
 					GUI.CurrentSaveSlot = 0;
 
 				static char str [64];
@@ -879,6 +905,32 @@ int HandleKeyMessage(WPARAM wParam, LPARAM lParam)
 
 				static char str [64];
 				sprintf(str, FREEZE_INFO_SET_SLOT_N, GUI.CurrentSaveSlot);
+				S9xSetInfoString(str);
+
+				hitHotKey = true;
+			}
+			if (wParam == CustomKeys.BankPlus.key
+				&& modifiers == CustomKeys.BankPlus.modifiers)
+			{
+				GUI.CurrentSaveBank++;
+				if (GUI.CurrentSaveBank > LAST_SAVE_BANK)
+					GUI.CurrentSaveBank = 0;
+
+				static char str[64];
+				sprintf(str, FREEZE_INFO_SET_BANK_N, GUI.CurrentSaveBank);
+				S9xSetInfoString(str);
+
+				hitHotKey = true;
+			}
+			if (wParam == CustomKeys.BankMinus.key
+				&& modifiers == CustomKeys.BankMinus.modifiers)
+			{
+				GUI.CurrentSaveBank--;
+				if (GUI.CurrentSaveBank < 0)
+					GUI.CurrentSaveBank = 9;
+
+				static char str[64];
+				sprintf(str, FREEZE_INFO_SET_BANK_N, GUI.CurrentSaveBank);
 				S9xSetInfoString(str);
 
 				hitHotKey = true;
@@ -1206,11 +1258,11 @@ int HandleKeyMessage(WPARAM wParam, LPARAM lParam)
 		if(wParam == CustomKeys.TurboDown.key && modifiers == CustomKeys.TurboDown.modifiers)
 			PostMessage(GUI.hWnd, WM_COMMAND, (WPARAM)(ID_TURBO_DOWN),(LPARAM)(NULL));
 
-		for(int i = 0 ; i < 10 ; i++)
+		for(int i = 0 ; i < SAVE_SLOTS_PER_BANK; i++)
 		{
 			if(wParam == CustomKeys.SelectSave[i].key && modifiers == CustomKeys.SelectSave[i].modifiers)
 			{
-				GUI.CurrentSaveSlot = i;
+				GUI.CurrentSaveSlot = GUI.CurrentSaveBank * SAVE_SLOTS_PER_BANK + i;
 
 				static char str [64];
 				sprintf(str, FREEZE_INFO_SET_SLOT_N, GUI.CurrentSaveSlot);
@@ -1517,7 +1569,19 @@ LRESULT CALLBACK WinProc(
 		return 0;
 
 	case WM_COMMAND:
-		switch (wParam & 0xffff)
+	{
+		int cmd_id = wParam & 0xffff;
+		if (cmd_id >= ID_FILE_SAVE0 && cmd_id < ID_FILE_SAVE0 + NUM_SAVE_BANKS * SAVE_SLOTS_PER_BANK)
+		{
+			FreezeUnfreezeSlot(cmd_id - ID_FILE_SAVE0, TRUE);
+			break;
+		}
+		else if (cmd_id >= ID_FILE_LOAD0 && cmd_id < ID_FILE_LOAD0 + NUM_SAVE_BANKS * SAVE_SLOTS_PER_BANK)
+		{
+			FreezeUnfreezeSlot(cmd_id - ID_FILE_LOAD0, FALSE);
+			break;
+		}
+		switch (cmd_id)
 		{
 		case ID_FILE_AVI_RECORDING:
 			if (!GUI.AVIOut)
@@ -2111,71 +2175,20 @@ LRESULT CALLBACK WinProc(
 			Settings.FrameAdvance = false;
 			GUI.FrameAdvanceJustPressed = 0;
 			break;
-        case ID_FILE_LOAD0:
-			FreezeUnfreezeSlot (0, FALSE);
-			break;
-		case ID_FILE_LOAD1:
-			FreezeUnfreezeSlot (1, FALSE);
-			break;
-		case ID_FILE_LOAD2:
-			FreezeUnfreezeSlot (2, FALSE);
-			break;
-		case ID_FILE_LOAD3:
-			FreezeUnfreezeSlot (3, FALSE);
-			break;
-		case ID_FILE_LOAD4:
-			FreezeUnfreezeSlot (4, FALSE);
-			break;
-		case ID_FILE_LOAD5:
-			FreezeUnfreezeSlot (5, FALSE);
-			break;
-		case ID_FILE_LOAD6:
-			FreezeUnfreezeSlot (6, FALSE);
-			break;
-		case ID_FILE_LOAD7:
-			FreezeUnfreezeSlot (7, FALSE);
-			break;
-		case ID_FILE_LOAD8:
-			FreezeUnfreezeSlot (8, FALSE);
-			break;
-		case ID_FILE_LOAD9:
-			FreezeUnfreezeSlot (9, FALSE);
+		case ID_FILE_LOAD_OOPS:
+			FreezeUnfreezeSlot(-1, FALSE);
 			break;
         case ID_FILE_LOAD_FILE:
             FreezeUnfreezeDialog(FALSE);
             break;
-        case ID_FILE_SAVE0:
-            FreezeUnfreezeSlot (0, TRUE);
-			break;
-		case ID_FILE_SAVE1:
-			FreezeUnfreezeSlot (1, TRUE);
-			break;
-		case ID_FILE_SAVE2:
-			FreezeUnfreezeSlot (2, TRUE);
-			break;
-		case ID_FILE_SAVE3:
-			FreezeUnfreezeSlot (3, TRUE);
-			break;
-		case ID_FILE_SAVE4:
-			FreezeUnfreezeSlot (4, TRUE);
-			break;
-		case ID_FILE_SAVE5:
-			FreezeUnfreezeSlot (5, TRUE);
-			break;
-		case ID_FILE_SAVE6:
-			FreezeUnfreezeSlot (6, TRUE);
-			break;
-		case ID_FILE_SAVE7:
-			FreezeUnfreezeSlot (7, TRUE);
-			break;
-		case ID_FILE_SAVE8:
-			FreezeUnfreezeSlot (8, TRUE);
-			break;
-		case ID_FILE_SAVE9:
-			FreezeUnfreezeSlot (9, TRUE);
-			break;
+        case ID_FILE_LOAD_PREVIEW:
+            FreezeUnfreezeDialogPreview(FALSE);
+            break;
         case ID_FILE_SAVE_FILE:
             FreezeUnfreezeDialog(TRUE);
+            break;
+        case ID_FILE_SAVE_PREVIEW:
+            FreezeUnfreezeDialogPreview(TRUE);
             break;
 		case ID_CHEAT_ENTER:
 			RestoreGUIDisplay ();
@@ -2228,6 +2241,22 @@ LRESULT CALLBACK WinProc(
 			DialogBox(g_hInst, MAKEINTRESOURCE(IDD_EMU_SETTINGS), hWnd, DlgEmulatorProc);
 			RestoreSNESDisplay ();
 			break;
+        case ID_EMULATION_HACKS:
+			if (MessageBoxA(hWnd,
+				"The settings in this dialog should only be used for compatibility "
+				"with old ROM hacks or if you otherwise know what you're doing.\n\n"
+				"If any problems occur, click \"Set Defaults\" to reset the options to normal.",
+				"Warning: Unsupported",
+				MB_ICONWARNING | MB_OKCANCEL) != IDOK)
+				break;
+
+            RestoreGUIDisplay();
+			i = DialogBox(g_hInst, MAKEINTRESOURCE(IDD_DIALOG_HACKS), hWnd, DlgEmulatorHacksProc);
+            if (i == 1)
+                S9xReset();
+            else
+                RestoreSNESDisplay();
+            break;
 		case ID_HELP_ABOUT:
 			RestoreGUIDisplay ();
 			DialogBox(g_hInst, MAKEINTRESOURCE(IDD_ABOUT), hWnd, DlgAboutProc);
@@ -2279,7 +2308,7 @@ LRESULT CALLBACK WinProc(
 			break;
         }
         break;
-
+	}
 	case WM_EXITMENULOOP:
 		UpdateWindow(GUI.hWnd);
 		DrawMenuBar(GUI.hWnd);
@@ -2342,6 +2371,10 @@ LRESULT CALLBACK WinProc(
 		//                RealizePalette (GUI.WindowDC);
 		break;
 	case WM_SIZE:
+		if (wParam == SIZE_MINIMIZED && GUI.InactivePause)
+		{
+			S9xSetPause(PAUSE_INACTIVE_WINDOW);
+		}
 		WinChangeWindowSize(LOWORD(lParam),HIWORD(lParam));
 		break;
 	case WM_MOVE:
@@ -2594,6 +2627,40 @@ BOOL WinInit( HINSTANCE hInstance)
 		MessageBox (NULL, TEXT("Failed to initialize the menu.\nThis could indicate a failure of your operating system;\ntry closing some other windows or programs, or restart your computer, before opening Snes9x again.\nOr, if you compiled this program yourself, ensure that Snes9x was built with the proper resource files."), TEXT("Snes9x - Menu Initialization Failure"), MB_OK | MB_ICONSTOP);
 //        return FALSE; // disabled: try to function without the menu
 	}
+
+	// insert bank and slot submenus / menu items
+	HMENU parent_menu_save = GetSubMenuById(ID_FILE_SAVE_POPUP);
+	HMENU parent_menu_load = GetSubMenuById(ID_FILE_LOAD_POPUP);
+	MENUITEMINFO mii;
+	mii.cbSize = sizeof(mii);
+
+	for (int i = 0; i < NUM_SAVE_BANKS; i++)
+	{
+		// one bank sub each for save and load
+		HMENU bank_menu_save = CreatePopupMenu();
+		HMENU bank_menu_load = CreatePopupMenu();
+		// fill the slot entries into the sub menus
+		for (int j = 0; j < SAVE_SLOTS_PER_BANK; j++)
+		{
+			TCHAR *slot_string = g_saveMenuItemStrings[i * SAVE_SLOTS_PER_BANK + j];
+			_stprintf(slot_string, _T("Slot #&%d"), j);
+			mii.fMask = MIIM_STRING | MIIM_ID;
+			mii.dwTypeData = slot_string;
+			mii.wID = ID_FILE_SAVE0 + i * SAVE_SLOTS_PER_BANK + j;
+			InsertMenuItem(bank_menu_save, j, TRUE, &mii);
+			mii.wID = ID_FILE_LOAD0 + i * SAVE_SLOTS_PER_BANK + j;
+			InsertMenuItem(bank_menu_load, j, TRUE, &mii);
+		}
+
+		// add the bank menus to save and load
+		_stprintf(g_bankMenuItemStrings[i], _T("Bank #&%d"), i);
+		mii.fMask = MIIM_STRING | MIIM_SUBMENU;
+		mii.dwTypeData = g_bankMenuItemStrings[i];
+		mii.hSubMenu = bank_menu_save;
+		InsertMenuItem(parent_menu_save, i, TRUE, &mii);
+		mii.hSubMenu = bank_menu_load;
+		InsertMenuItem(parent_menu_load, i, TRUE, &mii);
+	}
 #ifdef DEBUGGER
 	if(GUI.hMenu) {
 		InsertMenu(GUI.hMenu,ID_OPTIONS_SETTINGS,MF_BYCOMMAND | MF_STRING | MF_ENABLED,ID_DEBUG_FRAME_ADVANCE,TEXT("&Debug Frame Advance"));
@@ -2649,6 +2716,12 @@ BOOL WinInit( HINSTANCE hInstance)
 
 void S9xExtraUsage ()
 {
+	S9xMessage(S9X_INFO, S9X_USAGE, "Windows port specific:");
+	S9xMessage(S9X_INFO, S9X_USAGE, "-fullscreen                     Start in fullscreen mode");
+	S9xMessage(S9X_INFO, S9X_USAGE, "-hidemenu                       Initially hide the GUI menu");
+	S9xMessage(S9X_INFO, S9X_USAGE, "-restore                        Reset all settings to default");
+	S9xMessage(S9X_INFO, S9X_USAGE, "-cartb <filename>               Specify the second cart for multicart, also triggers multicart");
+	MessageBox(NULL, _T("Snes9x command line options have been written to stdout.txt in the same folder as snes9x.exe"), _T("Command line options"), MB_OK | MB_ICONINFORMATION);
 }
 
 // handles joystick hotkey presses
@@ -3306,7 +3379,7 @@ int WINAPI WinMain(
 	PCEnd = PCStart;
 	PCEndTicks = timeGetTime()*1000;
 	PCStartTicks = timeGetTime()*1000;
-    PCFrameTime = PCFrameTimeNTSC = (__int64)((float)PCBase / 59.948743718592964824120603015098f);
+    PCFrameTime = PCFrameTimeNTSC = (__int64)((float)PCBase / 60.09881389744051f);
     PCFrameTimePAL = PCBase / 50;
 
 
@@ -3584,13 +3657,32 @@ void FreezeUnfreezeDialog(bool8 freeze)
     }
 }
 
+void FreezeUnfreezeDialogPreview(bool8 freeze)
+{
+    if(Settings.StopEmulation)
+        return;
+
+    CSaveLoadWithPreviewDlg dlg(freeze);
+    int slot = dlg.show();
+    if(slot >= 0)
+        FreezeUnfreezeSlot(slot, freeze);
+}
+
+void GetSlotFilename(int slot, char filename[_MAX_PATH + 1])
+{
+    char ext[_MAX_EXT + 1];
+
+    if(slot == -1)
+        strcpy(ext, ".oops");
+    else
+        snprintf(ext, _MAX_EXT, ".%03d", slot);
+    strcpy(filename, S9xGetFilename(ext, SNAPSHOT_DIR));
+}
+
 void FreezeUnfreezeSlot(int slot, bool8 freeze)
 {
     char filename[_MAX_PATH + 1];
-    char ext[_MAX_EXT + 1];
-
-    snprintf(ext, _MAX_EXT, ".%03d", slot);
-    strcpy(filename, S9xGetFilename(ext, SNAPSHOT_DIR));
+    GetSlotFilename(slot, filename);
 
     FreezeUnfreeze(filename, freeze);
 }
@@ -3605,6 +3697,28 @@ void FreezeUnfreeze (const char *filename, bool8 freeze)
         return;
     }
 #endif
+
+    if(Settings.StopEmulation)
+        return;
+
+	if (GUI.ConfirmSaveLoad)
+	{
+		std::string msg, title;
+		if (freeze)
+		{
+			msg = "Are you sure you want to SAVE to\n";
+			title = "Confirm SAVE";
+		}
+		else
+		{
+			msg = "Are you sure you want to LOAD from\n";
+			title = "Confirm LOAD";
+		}
+		msg += filename;
+		int res = MessageBox(GUI.hWnd, _tFromChar(msg.c_str()), _tFromChar(title.c_str()), MB_YESNO | MB_ICONQUESTION);
+		if (res != IDYES)
+			return;
+	}
 
     S9xSetPause (PAUSE_FREEZE_FILE);
 
@@ -3636,6 +3750,14 @@ void FreezeUnfreeze (const char *filename, bool8 freeze)
     }
 
     S9xClearPause (PAUSE_FREEZE_FILE);
+}
+
+bool UnfreezeScreenshotSlot(int slot, uint16 **image_buffer, int &width, int &height)
+{
+    char filename[_MAX_PATH + 1];
+    GetSlotFilename(slot, filename);
+
+    return S9xUnfreezeScreenshot(filename, image_buffer, width, height);
 }
 
 void CheckDirectoryIsWritable (const char *filename)
@@ -3696,6 +3818,9 @@ static void CheckMenuStates ()
 
 	for (int i = ID_FILE_LOAD0; i <= ID_FILE_LOAD_FILE; i++)
 		SetMenuItemInfo(GUI.hMenu, i, FALSE, &mii);
+
+    SetMenuItemInfo(GUI.hMenu, ID_FILE_SAVE_PREVIEW, FALSE, &mii);
+    SetMenuItemInfo(GUI.hMenu, ID_FILE_LOAD_PREVIEW, FALSE, &mii);
 
     SetMenuItemInfo (GUI.hMenu, ID_FILE_RESET, FALSE, &mii);
     SetMenuItemInfo (GUI.hMenu, ID_CHEAT_ENTER, FALSE, &mii);
@@ -4989,8 +5114,10 @@ INT_PTR CALLBACK DlgInfoProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam)
 				case 13:
 					strcat(romtext, "South Korea");
 					break;
-				case 14:strcat(romtext, "Unknown region 14");break;
-				default:strcat(romtext, "Unknown region 15");break;
+				default:
+					sprintf(temp, "Unknown region %d", Memory.ROMRegion);
+					strcat(romtext, temp);
+					break;
 				}
                 SendDlgItemMessage(hDlg, IDC_ROM_DATA, WM_SETTEXT, 0, (LPARAM)((TCHAR *)_tFromMS932(romtext)));
 				break;
@@ -5062,6 +5189,114 @@ INT_PTR CALLBACK DlgAboutProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam)
 	default:return false;
 	}
 }
+
+INT_PTR CALLBACK DlgEmulatorHacksProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    UDACCEL accel = { 0, 10 };
+    bool must_reset = 0;
+
+    switch (msg)
+    {
+    case WM_INITDIALOG:
+
+        SendDlgItemMessage(hDlg, IDC_SFX_CLOCK_SPEED_SPIN, UDM_SETRANGE, 0, MAKELPARAM((short)400, (short)50));
+        SendDlgItemMessage(hDlg, IDC_SFX_CLOCK_SPEED_SPIN, UDM_SETPOS, 0, Settings.SuperFXClockMultiplier);
+        SendDlgItemMessage(hDlg, IDC_SFX_CLOCK_SPEED_SPIN, UDM_SETACCEL, 1, (LPARAM)&accel);
+
+        SendDlgItemMessage(hDlg, IDC_CPU_OVERCLOCK, CB_ADDSTRING, 0, (LPARAM)TEXT("None"));
+        SendDlgItemMessage(hDlg, IDC_CPU_OVERCLOCK, CB_ADDSTRING, 0, (LPARAM)TEXT("Low"));
+        SendDlgItemMessage(hDlg, IDC_CPU_OVERCLOCK, CB_ADDSTRING, 0, (LPARAM)TEXT("Medium"));
+        SendDlgItemMessage(hDlg, IDC_CPU_OVERCLOCK, CB_ADDSTRING, 0, (LPARAM)TEXT("Max"));
+        SendDlgItemMessage(hDlg, IDC_CPU_OVERCLOCK, CB_SETCURSEL, Settings.OverclockMode, 0);
+
+        SendDlgItemMessage(hDlg, IDC_SOUND_INTERPOLATION, CB_ADDSTRING, 0, (LPARAM)TEXT("None"));
+        SendDlgItemMessage(hDlg, IDC_SOUND_INTERPOLATION, CB_ADDSTRING, 0, (LPARAM)TEXT("Linear"));
+        SendDlgItemMessage(hDlg, IDC_SOUND_INTERPOLATION, CB_ADDSTRING, 0, (LPARAM)TEXT("Gaussian (SNES Hardware)"));
+        SendDlgItemMessage(hDlg, IDC_SOUND_INTERPOLATION, CB_ADDSTRING, 0, (LPARAM)TEXT("Cubic"));
+        SendDlgItemMessage(hDlg, IDC_SOUND_INTERPOLATION, CB_ADDSTRING, 0, (LPARAM)TEXT("Sinc"));
+        SendDlgItemMessage(hDlg, IDC_SOUND_INTERPOLATION, CB_SETCURSEL, Settings.InterpolationMethod, 0);
+
+        CheckDlgButton(hDlg, IDC_INVALID_VRAM, !Settings.BlockInvalidVRAMAccessMaster);
+        CheckDlgButton(hDlg, IDC_SEPARATE_ECHO_BUFFER, Settings.SeparateEchoBuffer);
+        CheckDlgButton(hDlg, IDC_NO_SPRITE_LIMIT, Settings.MaxSpriteTilesPerLine == 128);
+
+        return true;
+        break;
+
+    case WM_COMMAND:
+
+        switch (LOWORD(wParam))
+        {
+        case IDOK:
+            if (((Settings.BlockInvalidVRAMAccessMaster != !IsDlgButtonChecked(hDlg, IDC_INVALID_VRAM)) ||
+                (Settings.SeparateEchoBuffer != IsDlgButtonChecked(hDlg, IDC_SEPARATE_ECHO_BUFFER)))
+                && !Settings.StopEmulation)
+            {
+
+                if (MessageBoxA(hDlg, "To make the requested changes, the game will need to be reset.", "Reset Required", MB_OKCANCEL) != IDOK)
+                    return false;
+                must_reset = true;
+            }
+
+            Settings.SuperFXClockMultiplier = SendDlgItemMessage(hDlg, IDC_SFX_CLOCK_SPEED_SPIN, UDM_GETPOS, 0, 0);
+            Settings.OverclockMode = SendDlgItemMessage(hDlg, IDC_CPU_OVERCLOCK, CB_GETCURSEL, 0, 0);
+            Settings.InterpolationMethod = SendDlgItemMessage(hDlg, IDC_SOUND_INTERPOLATION, CB_GETCURSEL, 0, 0);
+            Settings.BlockInvalidVRAMAccessMaster = !IsDlgButtonChecked(hDlg, IDC_INVALID_VRAM);
+            Settings.SeparateEchoBuffer = IsDlgButtonChecked(hDlg, IDC_SEPARATE_ECHO_BUFFER);
+            Settings.MaxSpriteTilesPerLine = IsDlgButtonChecked(hDlg, IDC_NO_SPRITE_LIMIT) ? 128 : 34;
+
+            switch (Settings.OverclockMode)
+            {
+            default:
+            case 0:
+                Settings.OneClockCycle = 6;
+                Settings.OneSlowClockCycle = 8;
+                Settings.TwoClockCycles = 12;
+                break;
+            case 1:
+                Settings.OneClockCycle = 6;
+                Settings.OneSlowClockCycle = 6;
+                Settings.TwoClockCycles = 12;
+                break;
+            case 2:
+                Settings.OneClockCycle = 4;
+                Settings.OneSlowClockCycle = 6;
+                Settings.TwoClockCycles = 8;
+                break;
+            case 3:
+                Settings.OneClockCycle = 3;
+                Settings.OneSlowClockCycle = 4;
+                Settings.TwoClockCycles = 6;
+                break;
+            }
+
+            EndDialog(hDlg, must_reset);
+            return true;
+
+        case IDCANCEL:
+            EndDialog(hDlg, 0);
+            return true;
+
+		case IDC_SET_DEFAULTS:
+			SendDlgItemMessage(hDlg, IDC_SFX_CLOCK_SPEED_SPIN, UDM_SETPOS, 0, 100);
+			SendDlgItemMessage(hDlg, IDC_CPU_OVERCLOCK, CB_SETCURSEL, 0, 0);
+			SendDlgItemMessage(hDlg, IDC_SOUND_INTERPOLATION, CB_SETCURSEL, 2, 0);
+			CheckDlgButton(hDlg, IDC_INVALID_VRAM, false);
+			CheckDlgButton(hDlg, IDC_SEPARATE_ECHO_BUFFER, false);
+			CheckDlgButton(hDlg, IDC_NO_SPRITE_LIMIT, false);
+			break;
+        default:
+            break;
+        }
+
+        return true;
+        break;
+
+    default:
+        return false;
+    }
+}
+
 INT_PTR CALLBACK DlgEmulatorProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	static TCHAR paths[10][MAX_PATH];
@@ -5099,6 +5334,7 @@ INT_PTR CALLBACK DlgEmulatorProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lPar
 			CheckDlgButton(hDlg,IDC_INACTIVE_PAUSE,GUI.InactivePause ? BST_CHECKED : BST_UNCHECKED);
 			CheckDlgButton(hDlg,IDC_CUSTOMROMOPEN,GUI.CustomRomOpen ? BST_CHECKED : BST_UNCHECKED);
 			CheckDlgButton(hDlg,IDC_HIRESAVI,GUI.AVIHiRes ? BST_CHECKED : BST_UNCHECKED);
+			CheckDlgButton(hDlg, IDC_CONFIRMSAVELOAD, GUI.ConfirmSaveLoad ? BST_CHECKED : BST_UNCHECKED);
 
 			int inum = 0;
 			lstrcpy(paths[inum++],GUI.RomDir);
@@ -5189,6 +5425,7 @@ INT_PTR CALLBACK DlgEmulatorProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lPar
 					GUI.InactivePause = (BST_CHECKED==IsDlgButtonChecked(hDlg, IDC_INACTIVE_PAUSE));
 					GUI.CustomRomOpen = (BST_CHECKED==IsDlgButtonChecked(hDlg, IDC_CUSTOMROMOPEN));
 					GUI.AVIHiRes = (BST_CHECKED==IsDlgButtonChecked(hDlg, IDC_HIRESAVI));
+					GUI.ConfirmSaveLoad = (BST_CHECKED == IsDlgButtonChecked(hDlg, IDC_CONFIRMSAVELOAD));
 
 					Settings.TurboSkipFrames=SendDlgItemMessage(hDlg, IDC_SPIN_TURBO_SKIP, UDM_GETPOS, 0,0);
 					Settings.AutoMaxSkipFrames=SendDlgItemMessage(hDlg, IDC_SPIN_MAX_SKIP, UDM_GETPOS, 0,0);
@@ -8145,138 +8382,111 @@ switch(msg)
 	return FALSE;
 }
 
+struct hotkey_dialog_item {
+    SCustomKey *key_entry;
+    TCHAR *description;
+};
+
+// this structure defines the four sub pages in the hotkey config dialog
+// to keep an entry blank, set the SCustomKey pointer to NULL and the text to an empty string
+static hotkey_dialog_item hotkey_dialog_items[4][MAX_SWITCHABLE_HOTKEY_DIALOG_ITEMS] = {
+    {
+        { &CustomKeys.SpeedUp, HOTKEYS_LABEL_1_1 },
+        { &CustomKeys.SpeedDown, HOTKEYS_LABEL_1_2 },
+        { &CustomKeys.Pause, HOTKEYS_LABEL_1_3 },
+        { &CustomKeys.FastForwardToggle, HOTKEYS_LABEL_1_4 },
+        { &CustomKeys.FastForward, HOTKEYS_LABEL_1_5 },
+        { &CustomKeys.Rewind, HOTKEYS_LABEL_1_6 },
+        { &CustomKeys.SkipUp, HOTKEYS_LABEL_1_7 },
+        { &CustomKeys.SkipDown, HOTKEYS_LABEL_1_8 },
+        { &CustomKeys.Mute, HOTKEYS_LABEL_1_9 },
+        { &CustomKeys.ToggleCheats, HOTKEYS_LABEL_1_10 },
+        { &CustomKeys.QuitS9X, HOTKEYS_LABEL_1_11 },
+        { &CustomKeys.ResetGame, HOTKEYS_LABEL_1_12 },
+        { &CustomKeys.SaveScreenShot, HOTKEYS_LABEL_1_13 },
+		{ &CustomKeys.FrameAdvance, HOTKEYS_LABEL_1_14 },
+    },
+    {
+        { &CustomKeys.BGL1, HOTKEYS_LABEL_2_1 },
+        { &CustomKeys.BGL2, HOTKEYS_LABEL_2_2 },
+        { &CustomKeys.BGL3, HOTKEYS_LABEL_2_3 },
+        { &CustomKeys.BGL4, HOTKEYS_LABEL_2_4 },
+        { &CustomKeys.BGL5, HOTKEYS_LABEL_2_5 },
+        { &CustomKeys.ClippingWindows, HOTKEYS_LABEL_2_6 },
+        { &CustomKeys.Transparency, HOTKEYS_LABEL_2_7 },
+		{ &CustomKeys.ScopeTurbo, HOTKEYS_LABEL_2_8 },
+        { &CustomKeys.ScopePause, HOTKEYS_LABEL_2_9 },
+        { &CustomKeys.SwitchControllers, HOTKEYS_LABEL_2_10 },
+        { &CustomKeys.JoypadSwap, HOTKEYS_LABEL_2_11 },
+        { &CustomKeys.ShowPressed, HOTKEYS_LABEL_2_12 },
+        { &CustomKeys.FrameCount, HOTKEYS_LABEL_2_13 },
+		{ &CustomKeys.ReadOnly, HOTKEYS_LABEL_2_14 },
+    },
+    {
+        { &CustomKeys.TurboA, HOTKEYS_LABEL_3_1 },
+        { &CustomKeys.TurboB, HOTKEYS_LABEL_3_2 },
+        { &CustomKeys.TurboY, HOTKEYS_LABEL_3_3 },
+        { &CustomKeys.TurboX, HOTKEYS_LABEL_3_4 },
+        { &CustomKeys.TurboL, HOTKEYS_LABEL_3_5 },
+        { &CustomKeys.TurboR, HOTKEYS_LABEL_3_6 },
+        { &CustomKeys.TurboStart, HOTKEYS_LABEL_3_7 },
+        { &CustomKeys.TurboSelect, HOTKEYS_LABEL_3_8 },
+        { &CustomKeys.TurboLeft, HOTKEYS_LABEL_3_9 },
+        { &CustomKeys.TurboUp, HOTKEYS_LABEL_3_10 },
+        { &CustomKeys.TurboRight, HOTKEYS_LABEL_3_11 },
+        { &CustomKeys.TurboDown, HOTKEYS_LABEL_3_12 },
+		{ NULL, _T("") },
+		{ NULL, _T("") },
+    },
+    {
+        { &CustomKeys.SelectSave[0], HOTKEYS_LABEL_4_1 },
+        { &CustomKeys.SelectSave[1], HOTKEYS_LABEL_4_2 },
+        { &CustomKeys.SelectSave[2], HOTKEYS_LABEL_4_3 },
+        { &CustomKeys.SelectSave[3], HOTKEYS_LABEL_4_4 },
+        { &CustomKeys.SelectSave[4], HOTKEYS_LABEL_4_5 },
+        { &CustomKeys.SelectSave[5], HOTKEYS_LABEL_4_6 },
+        { &CustomKeys.SelectSave[6], HOTKEYS_LABEL_4_7 },
+        { &CustomKeys.SelectSave[7], HOTKEYS_LABEL_4_8 },
+        { &CustomKeys.SelectSave[8], HOTKEYS_LABEL_4_9 },
+        { &CustomKeys.SelectSave[9], HOTKEYS_LABEL_4_10 },
+        { &CustomKeys.SaveFileSelect, HOTKEYS_LABEL_4_11 },
+        { &CustomKeys.LoadFileSelect, HOTKEYS_LABEL_4_12 },
+		{ NULL, _T("") },
+		{ NULL, _T("") },
+    },
+};
 
 static void set_hotkeyinfo(HWND hDlg)
 {
 	int index = SendDlgItemMessage(hDlg,IDC_HKCOMBO,CB_GETCURSEL,0,0);
 
-	switch(index)
-	{
-	case 0:
-		// set page 1 fields
-		SendDlgItemMessage(hDlg,IDC_HOTKEY1,WM_USER+44,CustomKeys.SpeedUp.key,CustomKeys.SpeedUp.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY2,WM_USER+44,CustomKeys.SpeedDown.key,CustomKeys.SpeedDown.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY3,WM_USER+44,CustomKeys.Pause.key,CustomKeys.Pause.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY4,WM_USER+44,CustomKeys.FrameAdvance.key,CustomKeys.FrameAdvance.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY5,WM_USER+44,CustomKeys.FastForward.key,CustomKeys.FastForward.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY6,WM_USER+44,CustomKeys.SkipUp.key,CustomKeys.SkipUp.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY7,WM_USER+44,CustomKeys.SkipDown.key,CustomKeys.SkipDown.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY8,WM_USER+44,CustomKeys.ScopeTurbo.key,CustomKeys.ScopeTurbo.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY9,WM_USER+44,CustomKeys.ScopePause.key,CustomKeys.ScopePause.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY10,WM_USER+44,CustomKeys.ShowPressed.key,CustomKeys.ShowPressed.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY11,WM_USER+44,CustomKeys.FrameCount.key,CustomKeys.FrameCount.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY12,WM_USER+44,CustomKeys.ReadOnly.key,CustomKeys.ReadOnly.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY13,WM_USER+44,CustomKeys.SaveScreenShot.key,CustomKeys.SaveScreenShot.modifiers);
-		break;
-	case 1:
-		SendDlgItemMessage(hDlg,IDC_HOTKEY1,WM_USER+44,CustomKeys.BGL1.key,CustomKeys.BGL1.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY2,WM_USER+44,CustomKeys.BGL2.key,CustomKeys.BGL2.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY3,WM_USER+44,CustomKeys.BGL3.key,CustomKeys.BGL3.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY4,WM_USER+44,CustomKeys.BGL4.key,CustomKeys.BGL4.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY5,WM_USER+44,CustomKeys.BGL5.key,CustomKeys.BGL5.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY6,WM_USER+44,CustomKeys.ClippingWindows.key,CustomKeys.ClippingWindows.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY7,WM_USER+44,CustomKeys.Transparency.key,CustomKeys.Transparency.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY8,WM_USER+44,CustomKeys.FastForwardToggle.key,CustomKeys.FastForwardToggle.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY9,WM_USER+44,CustomKeys.Rewind.key,CustomKeys.Rewind.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY10,WM_USER+44,CustomKeys.SwitchControllers.key,CustomKeys.SwitchControllers.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY11,WM_USER+44,CustomKeys.JoypadSwap.key,CustomKeys.JoypadSwap.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY12,WM_USER+44,CustomKeys.ResetGame.key,CustomKeys.ResetGame.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY13,WM_USER+44,CustomKeys.ToggleCheats.key,CustomKeys.ToggleCheats.modifiers);
-		break;
-	case 2:
-		SendDlgItemMessage(hDlg,IDC_HOTKEY1,WM_USER+44,CustomKeys.TurboA.key,CustomKeys.TurboA.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY2,WM_USER+44,CustomKeys.TurboB.key,CustomKeys.TurboB.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY3,WM_USER+44,CustomKeys.TurboY.key,CustomKeys.TurboY.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY4,WM_USER+44,CustomKeys.TurboX.key,CustomKeys.TurboX.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY5,WM_USER+44,CustomKeys.TurboL.key,CustomKeys.TurboL.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY6,WM_USER+44,CustomKeys.TurboR.key,CustomKeys.TurboR.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY7,WM_USER+44,CustomKeys.TurboStart.key,CustomKeys.TurboStart.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY8,WM_USER+44,CustomKeys.TurboSelect.key,CustomKeys.TurboSelect.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY9,WM_USER+44,CustomKeys.TurboLeft.key,CustomKeys.TurboLeft.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY10,WM_USER+44,CustomKeys.TurboUp.key,CustomKeys.TurboUp.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY11,WM_USER+44,CustomKeys.TurboRight.key,CustomKeys.TurboRight.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY12,WM_USER+44,CustomKeys.TurboDown.key,CustomKeys.TurboDown.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY13,WM_USER+44, CustomKeys.Mute.key, CustomKeys.Mute.modifiers);
-		break;
-	case 3:
-		for(int i = 0 ; i < 10 ; i++)
-			SendDlgItemMessage(hDlg,IDC_HOTKEY1+i,WM_USER+44,CustomKeys.SelectSave[i].key,CustomKeys.SelectSave[i].modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY11,WM_USER+44, CustomKeys.SaveFileSelect.key, CustomKeys.SaveFileSelect.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY12,WM_USER+44, CustomKeys.LoadFileSelect.key, CustomKeys.LoadFileSelect.modifiers);
-		SendDlgItemMessage(hDlg,IDC_HOTKEY13,WM_USER+44,CustomKeys.QuitS9X.key,CustomKeys.QuitS9X.modifiers);
-		break;
-	}
+    for(int i = 0; i < MAX_SWITCHABLE_HOTKEY_DIALOG_ITEMS; i++)
+    {
+        int wParam = 0, lParam = 0;
+        if(hotkey_dialog_items[index][i].key_entry)
+        {
+            wParam = hotkey_dialog_items[index][i].key_entry->key;
+            lParam = hotkey_dialog_items[index][i].key_entry->modifiers;
+        }
+        SendDlgItemMessage(hDlg, IDC_HOTKEY1 + i, WM_USER + 44, wParam, lParam);
+    }
 
 	SendDlgItemMessage(hDlg,IDC_SLOTPLUS,WM_USER+44,CustomKeys.SlotPlus.key,CustomKeys.SlotPlus.modifiers);
 	SendDlgItemMessage(hDlg,IDC_SLOTMINUS,WM_USER+44,CustomKeys.SlotMinus.key,CustomKeys.SlotMinus.modifiers);
 	SendDlgItemMessage(hDlg,IDC_SLOTSAVE,WM_USER+44,CustomKeys.SlotSave.key,CustomKeys.SlotSave.modifiers);
 	SendDlgItemMessage(hDlg,IDC_SLOTLOAD,WM_USER+44,CustomKeys.SlotLoad.key,CustomKeys.SlotLoad.modifiers);
+    SendDlgItemMessage(hDlg, IDC_DIALOGSAVE, WM_USER + 44, CustomKeys.DialogSave.key, CustomKeys.DialogSave.modifiers);
+    SendDlgItemMessage(hDlg, IDC_DIALOGLOAD, WM_USER + 44, CustomKeys.DialogLoad.key, CustomKeys.DialogLoad.modifiers);
+	SendDlgItemMessage(hDlg, IDC_BANKPLUS, WM_USER + 44, CustomKeys.BankPlus.key, CustomKeys.BankPlus.modifiers);
+	SendDlgItemMessage(hDlg, IDC_BANKMINUS, WM_USER + 44, CustomKeys.BankMinus.key, CustomKeys.BankMinus.modifiers);
 	int i;
-	for(i = 0 ; i < 10 ; i++) SendDlgItemMessage(hDlg,IDC_SAVE1+i,WM_USER+44,CustomKeys.Save[i].key,CustomKeys.Save[i].modifiers);
-	for(i = 0 ; i < 10 ; i++) SendDlgItemMessage(hDlg,IDC_SAVE11+i,WM_USER+44,CustomKeys.Load[i].key,CustomKeys.Load[i].modifiers);
+	for(i = 0 ; i < SAVE_SLOTS_PER_BANK; i++) SendDlgItemMessage(hDlg,IDC_SAVE1+i,WM_USER+44,CustomKeys.Save[i].key,CustomKeys.Save[i].modifiers);
+	for(i = 0 ; i < SAVE_SLOTS_PER_BANK; i++) SendDlgItemMessage(hDlg,IDC_SAVE11+i,WM_USER+44,CustomKeys.Load[i].key,CustomKeys.Load[i].modifiers);
 
-	switch(index)
-	{
-	case 0:
-		// set page 1 label text
-		SetDlgItemText(hDlg,IDC_LABEL_HK1,HOTKEYS_LABEL_1_1);
-		SetDlgItemText(hDlg,IDC_LABEL_HK2,HOTKEYS_LABEL_1_2);
-		SetDlgItemText(hDlg,IDC_LABEL_HK3,HOTKEYS_LABEL_1_3);
-		SetDlgItemText(hDlg,IDC_LABEL_HK4,HOTKEYS_LABEL_1_4);
-		SetDlgItemText(hDlg,IDC_LABEL_HK5,HOTKEYS_LABEL_1_5);
-		SetDlgItemText(hDlg,IDC_LABEL_HK6,HOTKEYS_LABEL_1_6);
-		SetDlgItemText(hDlg,IDC_LABEL_HK7,HOTKEYS_LABEL_1_7);
-		SetDlgItemText(hDlg,IDC_LABEL_HK8,HOTKEYS_LABEL_1_8);
-		SetDlgItemText(hDlg,IDC_LABEL_HK9,HOTKEYS_LABEL_1_9);
-		SetDlgItemText(hDlg,IDC_LABEL_HK10,HOTKEYS_LABEL_1_10);
-		SetDlgItemText(hDlg,IDC_LABEL_HK11,HOTKEYS_LABEL_1_11);
-		SetDlgItemText(hDlg,IDC_LABEL_HK12,HOTKEYS_LABEL_1_12);
-		SetDlgItemText(hDlg,IDC_LABEL_HK13,HOTKEYS_LABEL_1_13);
-		break;
-	case 1:
-		SetDlgItemText(hDlg,IDC_LABEL_HK1,HOTKEYS_LABEL_2_1);
-		SetDlgItemText(hDlg,IDC_LABEL_HK2,HOTKEYS_LABEL_2_2);
-		SetDlgItemText(hDlg,IDC_LABEL_HK3,HOTKEYS_LABEL_2_3);
-		SetDlgItemText(hDlg,IDC_LABEL_HK4,HOTKEYS_LABEL_2_4);
-		SetDlgItemText(hDlg,IDC_LABEL_HK5,HOTKEYS_LABEL_2_5);
-		SetDlgItemText(hDlg,IDC_LABEL_HK6,HOTKEYS_LABEL_2_6);
-		SetDlgItemText(hDlg,IDC_LABEL_HK7,HOTKEYS_LABEL_2_7);
-		SetDlgItemText(hDlg,IDC_LABEL_HK8,HOTKEYS_LABEL_2_8);
-		SetDlgItemText(hDlg,IDC_LABEL_HK9,HOTKEYS_LABEL_2_9);
-		SetDlgItemText(hDlg,IDC_LABEL_HK10,HOTKEYS_LABEL_2_10);
-		SetDlgItemText(hDlg,IDC_LABEL_HK11,HOTKEYS_LABEL_2_11);
-		SetDlgItemText(hDlg,IDC_LABEL_HK12,HOTKEYS_LABEL_2_12);
-		SetDlgItemText(hDlg,IDC_LABEL_HK13,HOTKEYS_LABEL_2_13);
-		break;
-	case 2:
-		SetDlgItemText(hDlg,IDC_LABEL_HK1,HOTKEYS_LABEL_3_1);
-		SetDlgItemText(hDlg,IDC_LABEL_HK2,HOTKEYS_LABEL_3_2);
-		SetDlgItemText(hDlg,IDC_LABEL_HK3,HOTKEYS_LABEL_3_3);
-		SetDlgItemText(hDlg,IDC_LABEL_HK4,HOTKEYS_LABEL_3_4);
-		SetDlgItemText(hDlg,IDC_LABEL_HK5,HOTKEYS_LABEL_3_5);
-		SetDlgItemText(hDlg,IDC_LABEL_HK6,HOTKEYS_LABEL_3_6);
-		SetDlgItemText(hDlg,IDC_LABEL_HK7,HOTKEYS_LABEL_3_7);
-		SetDlgItemText(hDlg,IDC_LABEL_HK8,HOTKEYS_LABEL_3_8);
-		SetDlgItemText(hDlg,IDC_LABEL_HK9,HOTKEYS_LABEL_3_9);
-		SetDlgItemText(hDlg,IDC_LABEL_HK10,HOTKEYS_LABEL_3_10);
-		SetDlgItemText(hDlg,IDC_LABEL_HK11,HOTKEYS_LABEL_3_11);
-		SetDlgItemText(hDlg,IDC_LABEL_HK12,HOTKEYS_LABEL_3_12);
-		SetDlgItemText(hDlg,IDC_LABEL_HK13, HOTKEYS_LABEL_3_13);
-
-		break;
-	case 3:
-		for(int i = 0 ; i < 10 ; i++)
-		{
-			TCHAR temp [64];
-			_stprintf(temp, TEXT("Select Slot %d"), i);
-			SetDlgItemText(hDlg,IDC_LABEL_HK1+i,temp);
-		}
-		SetDlgItemText(hDlg, IDC_LABEL_HK11, HOTKEYS_LABEL_4_11);
-		SetDlgItemText(hDlg, IDC_LABEL_HK12, HOTKEYS_LABEL_4_12);
-		SetDlgItemText(hDlg,IDC_LABEL_HK13,HOTKEYS_LABEL_4_13);
-
-		break;
-	}
+    for(int i = 0; i < MAX_SWITCHABLE_HOTKEY_DIALOG_ITEMS; i++)
+    {
+        SetDlgItemText(hDlg, IDC_LABEL_HK1 + i, hotkey_dialog_items[index][i].description);
+    }
 }
 
 // DlgHotkeyConfig
@@ -8357,85 +8567,6 @@ switch(msg)
 
 		switch(which)
 		{
-		case IDC_HOTKEY1:
-			if(index == 0) CustomKeys.SpeedUp.key = wParam, CustomKeys.SpeedUp.modifiers = modifiers;
-			if(index == 1) CustomKeys.BGL1.key = wParam,    CustomKeys.BGL1.modifiers = modifiers;
-			if(index == 2) CustomKeys.TurboA.key = wParam,    CustomKeys.TurboA.modifiers = modifiers;
-			if(index == 3) CustomKeys.SelectSave[0].key = wParam,	CustomKeys.SelectSave[0].modifiers = modifiers;
-			break;
-		case IDC_HOTKEY2:
-			if(index == 0) CustomKeys.SpeedDown.key = wParam, CustomKeys.SpeedDown.modifiers = modifiers;
-			if(index == 1) CustomKeys.BGL2.key = wParam,      CustomKeys.BGL2.modifiers = modifiers;
-			if(index == 2) CustomKeys.TurboB.key = wParam,    CustomKeys.TurboB.modifiers = modifiers;
-			if(index == 3) CustomKeys.SelectSave[1].key = wParam,	CustomKeys.SelectSave[1].modifiers = modifiers;
-			break;
-		case IDC_HOTKEY3:
-			if(index == 0) CustomKeys.Pause.key = wParam, CustomKeys.Pause.modifiers = modifiers;
-			if(index == 1) CustomKeys.BGL3.key = wParam,  CustomKeys.BGL3.modifiers = modifiers;
-			if(index == 2) CustomKeys.TurboY.key = wParam,    CustomKeys.TurboY.modifiers = modifiers;
-			if(index == 3) CustomKeys.SelectSave[2].key = wParam,	CustomKeys.SelectSave[2].modifiers = modifiers;
-			break;
-		case IDC_HOTKEY4:
-			if(index == 0) CustomKeys.FrameAdvance.key = wParam, CustomKeys.FrameAdvance.modifiers = modifiers;
-			if(index == 1) CustomKeys.BGL4.key = wParam,         CustomKeys.BGL4.modifiers = modifiers;
-			if(index == 2) CustomKeys.TurboX.key = wParam,    CustomKeys.TurboX.modifiers = modifiers;
-			if(index == 3) CustomKeys.SelectSave[3].key = wParam,	CustomKeys.SelectSave[3].modifiers = modifiers;
-			break;
-		case IDC_HOTKEY5:
-			if(index == 0) CustomKeys.FastForward.key = wParam, CustomKeys.FastForward.modifiers = modifiers;
-			if(index == 1) CustomKeys.BGL5.key = wParam,        CustomKeys.BGL5.modifiers = modifiers;
-			if(index == 2) CustomKeys.TurboL.key = wParam,    CustomKeys.TurboL.modifiers = modifiers;
-			if(index == 3) CustomKeys.SelectSave[4].key = wParam,	CustomKeys.SelectSave[4].modifiers = modifiers;
-			break;
-		case IDC_HOTKEY6:
-			if(index == 0) CustomKeys.SkipUp.key = wParam,          CustomKeys.SkipUp.modifiers = modifiers;
-			if(index == 1) CustomKeys.ClippingWindows.key = wParam, CustomKeys.ClippingWindows.modifiers = modifiers;
-			if(index == 2) CustomKeys.TurboR.key = wParam,    CustomKeys.TurboR.modifiers = modifiers;
-			if(index == 3) CustomKeys.SelectSave[5].key = wParam,	CustomKeys.SelectSave[5].modifiers = modifiers;
-			break;
-		case IDC_HOTKEY7:
-			if(index == 0) CustomKeys.SkipDown.key = wParam, CustomKeys.SkipDown.modifiers = modifiers;
-			if(index == 1) CustomKeys.Transparency.key = wParam, CustomKeys.Transparency.modifiers = modifiers;
-			if(index == 2) CustomKeys.TurboStart.key = wParam,    CustomKeys.TurboStart.modifiers = modifiers;
-			if(index == 3) CustomKeys.SelectSave[6].key = wParam,	CustomKeys.SelectSave[6].modifiers = modifiers;
-			break;
-		case IDC_HOTKEY8:
-			if(index == 0) CustomKeys.ScopeTurbo.key = wParam,  CustomKeys.ScopeTurbo.modifiers = modifiers;
-			if(index == 1) CustomKeys.FastForwardToggle.key = wParam, CustomKeys.FastForwardToggle.modifiers = modifiers;
-			if(index == 2) CustomKeys.TurboSelect.key = wParam,    CustomKeys.TurboSelect.modifiers = modifiers;
-			if(index == 3) CustomKeys.SelectSave[7].key = wParam,	CustomKeys.SelectSave[7].modifiers = modifiers;
-			break;
-		case IDC_HOTKEY9:
-			if(index == 0) CustomKeys.ScopePause.key = wParam, CustomKeys.ScopePause.modifiers = modifiers;
-            if(index == 1) CustomKeys.Rewind.key = wParam,      CustomKeys.Rewind.modifiers = modifiers;
-			if(index == 2) CustomKeys.TurboLeft.key = wParam,    CustomKeys.TurboLeft.modifiers = modifiers;
-			if(index == 3) CustomKeys.SelectSave[8].key = wParam,	CustomKeys.SelectSave[8].modifiers = modifiers;
-			break;
-		case IDC_HOTKEY10:
-			if(index == 0) CustomKeys.ShowPressed.key = wParam, CustomKeys.ShowPressed.modifiers = modifiers;
-			if(index == 1) CustomKeys.SwitchControllers.key = wParam, CustomKeys.SwitchControllers.modifiers = modifiers;
-			if(index == 2) CustomKeys.TurboUp.key = wParam,    CustomKeys.TurboUp.modifiers = modifiers;
-			if(index == 3) CustomKeys.SelectSave[9].key = wParam,	CustomKeys.SelectSave[9].modifiers = modifiers;
-			break;
-		case IDC_HOTKEY11:
-			if(index == 0) CustomKeys.FrameCount.key = wParam,  CustomKeys.FrameCount.modifiers = modifiers;
-			if(index == 1) CustomKeys.JoypadSwap.key = wParam, CustomKeys.JoypadSwap.modifiers = modifiers;
-			if(index == 2) CustomKeys.TurboRight.key = wParam,    CustomKeys.TurboRight.modifiers = modifiers;
-			if(index == 3) CustomKeys.SaveFileSelect.key = wParam, CustomKeys.SaveFileSelect.modifiers = modifiers;
-			break;
-		case IDC_HOTKEY12:
-			if(index == 0) CustomKeys.ReadOnly.key = wParam,   CustomKeys.ReadOnly.modifiers = modifiers;
-			if(index == 1) CustomKeys.ResetGame.key = wParam,    CustomKeys.ResetGame.modifiers = modifiers;
-			if(index == 2) CustomKeys.TurboDown.key = wParam,    CustomKeys.TurboDown.modifiers = modifiers;
-			if(index == 3) CustomKeys.LoadFileSelect.key = wParam, CustomKeys.LoadFileSelect.modifiers = modifiers;
-			break;
-		case IDC_HOTKEY13:
-			if(index == 0) CustomKeys.SaveScreenShot.key = wParam,    CustomKeys.SaveScreenShot.modifiers = modifiers;
-			if(index == 1) CustomKeys.ToggleCheats.key = wParam,    CustomKeys.ToggleCheats.modifiers = modifiers;
-			if(index == 2) CustomKeys.Mute.key = wParam,  CustomKeys.Mute.modifiers = modifiers;
-			if(index == 3) CustomKeys.QuitS9X.key = wParam,  CustomKeys.QuitS9X.modifiers = modifiers;
-			break;
-
 		case IDC_SLOTPLUS:
 			CustomKeys.SlotPlus.key = wParam;
 			CustomKeys.SlotPlus.modifiers = modifiers;
@@ -8455,7 +8586,34 @@ switch(msg)
 			CustomKeys.SlotSave.key = wParam;
 			CustomKeys.SlotSave.modifiers = modifiers;
 			break;
+
+        case IDC_DIALOGSAVE:
+            CustomKeys.DialogSave.key = wParam;
+            CustomKeys.DialogSave.modifiers = modifiers;
+            break;
+
+        case IDC_DIALOGLOAD:
+            CustomKeys.DialogLoad.key = wParam;
+            CustomKeys.DialogLoad.modifiers = modifiers;
+            break;
+
+		case IDC_BANKPLUS:
+			CustomKeys.BankPlus.key = wParam;
+			CustomKeys.BankPlus.modifiers = modifiers;
+			break;
+
+		case IDC_BANKMINUS:
+			CustomKeys.BankMinus.key = wParam;
+			CustomKeys.BankMinus.modifiers = modifiers;
+			break;
 		}
+
+        if(which >= IDC_HOTKEY1 && which <= IDC_HOTKEY13)
+        {
+            int offset = which - IDC_HOTKEY1;
+            hotkey_dialog_items[index][offset].key_entry->key = wParam;
+            hotkey_dialog_items[index][offset].key_entry->modifiers = modifiers;
+        }
 
 		if(which >= IDC_SAVE1 && which <= IDC_SAVE10)
 		{

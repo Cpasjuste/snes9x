@@ -5,7 +5,6 @@
 \*****************************************************************************/
 
 #include <fcntl.h>
-#include "SDL.h"
 
 #include "gtk_s9xcore.h"
 #include "gtk_s9x.h"
@@ -569,9 +568,9 @@ JoyDevice::JoyDevice (unsigned int device_num)
 
     num_axes = SDL_JoystickNumAxes (filedes);
     num_hats = SDL_JoystickNumHats (filedes);
-    axis = (int *) malloc (sizeof (int) * num_axes);
-    hat  = (int *) malloc (sizeof (int) * num_hats);
-    calibration = (Calibration *) malloc (sizeof (Calibration) * num_axes);
+    axis = new int[num_axes];
+    hat = new int[num_hats];
+    calibration = new Calibration[num_axes];
 
     for (int i = 0; i < num_axes; i++)
     {
@@ -595,9 +594,9 @@ JoyDevice::~JoyDevice ()
     if (enabled)
     {
         SDL_JoystickClose (filedes);
-        free (axis);
-        free (hat);
-        free (calibration);
+        delete[] axis;
+        delete[] hat;
+        delete[] calibration;
     }
 
     enabled = false;

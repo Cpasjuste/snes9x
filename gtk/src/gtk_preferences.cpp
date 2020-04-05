@@ -427,7 +427,7 @@ event_input_rate_changed (GtkRange *range, gpointer data)
 {
     char text[256];
     GtkLabel *label = GTK_LABEL (data);
-    double value = gtk_range_get_value (range) / 32000.0 * 60.09881389744051;
+    double value = gtk_range_get_value (range) / 32040.0 * 60.09881389744051;
 
     snprintf (text, 256, "%.4f hz", value);
 
@@ -607,6 +607,7 @@ void
 Snes9xPreferences::move_settings_to_dialog ()
 {
     set_check ("full_screen_on_open",       config->full_screen_on_open);
+    set_check ("show_time",                 Settings.DisplayTime);
     set_check ("show_frame_rate",           Settings.DisplayFrameRate);
     set_check ("show_pressed_keys",         Settings.DisplayPressedKeys);
     set_check ("change_display_resolution", config->change_display_resolution);
@@ -640,7 +641,7 @@ Snes9xPreferences::move_settings_to_dialog ()
     set_combo ("resolution_combo",          config->xrr_index);
     set_combo ("scale_method_combo",        config->scale_method);
     set_entry_value ("save_sram_after_sec", Settings.AutoSaveDelay);
-    set_check ("block_invalid_vram_access", Settings.BlockInvalidVRAMAccessMaster);
+    set_check ("allow_invalid_vram_access", !Settings.BlockInvalidVRAMAccessMaster);
     set_check ("upanddown",                 Settings.UpAndDown);
     set_combo ("default_esc_behavior",      config->default_esc_behavior);
     set_check ("prevent_screensaver",       config->prevent_screensaver);
@@ -667,6 +668,12 @@ Snes9xPreferences::move_settings_to_dialog ()
     set_spin  ("rewind_buffer_size",        config->rewind_buffer_size);
     set_spin  ("rewind_granularity",        config->rewind_granularity);
     set_spin  ("superfx_multiplier",        Settings.SuperFXClockMultiplier);
+    set_combo ("splash_background",         config->splash_image);
+
+#if GTK_MAJOR_VERSION < 3
+    gtk_widget_hide (get_widget ("force_enable_icons"));
+#endif
+    set_check ("force_enable_icons",        config->enable_icons);
 
     int num_sound_drivers = 0;
 #ifdef USE_PORTAUDIO
@@ -735,10 +742,14 @@ Snes9xPreferences::move_settings_to_dialog ()
 #ifdef ALLOW_CPU_OVERCLOCK
     gtk_widget_show (get_widget ("cpu_overclock"));
     gtk_widget_show (get_widget ("remove_sprite_limit"));
-    gtk_widget_show (get_widget ("block_invalid_vram_access"));
+    gtk_widget_show (get_widget ("allow_invalid_vram_access"));
+    gtk_widget_show (get_widget ("echo_buffer_hack"));
+    gtk_widget_show (get_widget ("soundfilterhbox"));
 
     set_check ("cpu_overclock", Settings.OneClockCycle != 6);
     set_check ("remove_sprite_limit", Settings.MaxSpriteTilesPerLine != 34);
+    set_check ("echo_buffer_hack", Settings.SeparateEchoBuffer);
+    set_combo ("sound_filter", Settings.InterpolationMethod);
 #endif
 }
 
@@ -782,6 +793,18 @@ Snes9xPreferences::get_settings_from_dialog ()
 
     config->change_display_resolution = get_check ("change_display_resolution");
 
+    if (config->splash_image != get_combo ("splash_background"))
+    {
+        config->splash_image = get_combo ("splash_background");
+        if (!config->rom_loaded)
+        {
+            top_level->last_width = top_level->last_height = -1;
+            top_level->expose();
+        }
+    }
+
+    config->splash_image = get_combo ("splash_background");
+
     if (config->multithreading != get_check ("multithreading"))
         gfx_needs_restart = true;
 
@@ -791,7 +814,17 @@ Snes9xPreferences::get_settings_from_dialog ()
     if (config->force_inverted_byte_order != get_check ("force_inverted_byte_order"))
         gfx_needs_restart = true;
 
+    config->enable_icons              = get_check ("force_enable_icons");
+#if GTK_MAJOR_VERSION >= 3
+    auto settings = gtk_settings_get_default();
+    g_object_set(settings,
+                 "gtk-menu-images", gui_config->enable_icons,
+                 "gtk_button_images", gui_config->enable_icons,
+                 NULL);
+#endif
+
     config->full_screen_on_open       = get_check ("full_screen_on_open");
+    Settings.DisplayTime              = get_check ("show_time");
     Settings.DisplayFrameRate         = get_check ("show_frame_rate");
     Settings.DisplayPressedKeys       = get_check ("show_pressed_keys");
     config->scale_to_fit              = get_check ("scale_to_fit");
@@ -804,7 +837,7 @@ Snes9xPreferences::get_settings_from_dialog ()
     Settings.AutoSaveDelay            = get_entry_value ("save_sram_after_sec");
     config->multithreading            = get_check ("multithreading");
     config->pause_emulation_on_switch = get_check ("pause_emulation_on_switch");
-    Settings.BlockInvalidVRAMAccessMaster   = get_check ("block_invalid_vram_access");
+    Settings.BlockInvalidVRAMAccessMaster   = !get_check ("allow_invalid_vram_access");
     Settings.UpAndDown                = get_check ("upanddown");
     Settings.SuperFXClockMultiplier   = get_spin ("superfx_multiplier");
     config->sound_driver              = get_combo ("sound_driver");
@@ -851,6 +884,9 @@ Snes9xPreferences::get_settings_from_dialog ()
     {
         Settings.MaxSpriteTilesPerLine = 34;
     }
+
+    Settings.SeparateEchoBuffer = get_check ("echo_buffer_hack");
+    Settings.InterpolationMethod = get_combo ("sound_filter");
 #endif
 
     config->joystick_threshold        = get_spin ("joystick_threshold");
@@ -1219,10 +1255,6 @@ Snes9xPreferences::store_binding (const char *string, Binding binding)
         }
         else
         {
-            if (pad_bindings[i].matches (binding))
-            {
-                pad_bindings[i].clear ();
-            }
         }
     }
 
