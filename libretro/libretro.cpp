@@ -607,10 +607,10 @@ static void update_variables(void)
 
     var.key = "snes9x_echo_buffer_hack";
     var.value = NULL;
-    
+
     if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var))
         Settings.SeparateEchoBuffer = !strcmp(var.value, "disabled") ? false : true;
-    else 
+    else
         Settings.SeparateEchoBuffer = false;
 
     var.key = "snes9x_blargg";
@@ -1133,7 +1133,7 @@ bool retro_load_game(const struct retro_game_info *game)
     if (rom_loaded)
     {
         /* If we're in RGB565 format, switch frontend to that */
-        if (RED_SHIFT_BITS == 11) 
+        if (RED_SHIFT_BITS == 11)
         {
             enum retro_pixel_format fmt = RETRO_PIXEL_FORMAT_RGB565;
             if (!environ_cb || !environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt))
@@ -2125,7 +2125,6 @@ const char* S9xGetDirectory(s9x_getdirtype type)
     return "";
 }
 void S9xInitInputDevices() {}
-const char* S9xChooseFilename(unsigned char) { return ""; }
 void S9xHandlePortCommand(s9xcommand_t, short, short) {}
 bool S9xPollButton(unsigned int, bool*) { return false; }
 void S9xToggleSoundChannel(int) {}
@@ -2135,12 +2134,10 @@ bool8 S9xInitUpdate() { return TRUE; }
 void S9xExtraUsage() {}
 bool8 S9xOpenSoundDevice() { return TRUE; }
 bool S9xPollAxis(unsigned int, short*) { return FALSE; }
-void S9xSetPalette() {}
 void S9xParseArg(char**, int&, int) {}
 void S9xExit() {}
 bool S9xPollPointer(unsigned int, short*, short*) { return false; }
 
-const char *S9xChooseMovieFilename(unsigned char) { return NULL; }
 void S9xMessage(int type, int, const char* s)
 {
     if (!log_cb) return;
@@ -2193,66 +2190,3 @@ void S9xAutoSaveSRAM()
 {
     return;
 }
-
-#ifndef __WIN32__
-// S9x weirdness.
-void _splitpath (const char *path, char *drive, char *dir, char *fname, char *ext)
-{
-    *drive = 0;
-
-    const char	*slash = strrchr(path, SLASH_CHAR),
-            *dot	= strrchr(path, '.');
-
-    if (dot && slash && dot < slash)
-        dot = NULL;
-
-    if (!slash)
-    {
-        *dir = 0;
-
-        strcpy(fname, path);
-
-        if (dot)
-        {
-            fname[dot - path] = 0;
-            strcpy(ext, dot + 1);
-        }
-        else
-            *ext = 0;
-    }
-    else
-    {
-        strcpy(dir, path);
-        dir[slash - path] = 0;
-
-        strcpy(fname, slash + 1);
-
-        if (dot)
-        {
-            fname[dot - slash - 1] = 0;
-            strcpy(ext, dot + 1);
-        }
-        else
-            *ext = 0;
-    }
-}
-
-void _makepath (char *path, const char *, const char *dir, const char *fname, const char *ext)
-{
-    if (dir && *dir)
-    {
-        strcpy(path, dir);
-        strcat(path, SLASH_STR);
-    }
-    else
-        *path = 0;
-
-    strcat(path, fname);
-
-    if (ext && *ext)
-    {
-        strcat(path, ".");
-        strcat(path, ext);
-    }
-}
-#endif // __WIN32__

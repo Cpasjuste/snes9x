@@ -231,38 +231,38 @@ const char * S9xGetFilename (const char *inExt, enum s9x_getdirtype dirtype)
 	{
 		case '.srm':
 		case '.rtc':
-			strcpy(folderName, "SRAMs");
+			strlcpy(folderName, "SRAMs", sizeof(folderName));
 			break;
 
 		case '.frz':
-			strcpy(folderName, "Freezes");
+			strlcpy(folderName, "Freezes", sizeof(folderName));
 			break;
 
 		case '.spc':
-			strcpy(folderName, "SPCs");
+			strlcpy(folderName, "SPCs", sizeof(folderName));
 			break;
 
 		case '.cht':
-			strcpy(folderName, "Cheats");
+			strlcpy(folderName, "Cheats", sizeof(folderName));
 			break;
 
 		case '.ups':
 		case '.ips':
-			strcpy(folderName, "Patches");
+			strlcpy(folderName, "Patches", sizeof(folderName));
 			break;
 
 		case '.png':
-			strcpy(folderName, "Screenshots");
+			strlcpy(folderName, "Screenshots", sizeof(folderName));
 			break;
 
 		case '.dat':
 		case '.out':
 		case '.log':
-			strcpy(folderName, "Logs");
+			strlcpy(folderName, "Logs", sizeof(folderName));
 			break;
 
 		case '.bio':	// dummy
-			strcpy(folderName, "BIOSes");
+			strlcpy(folderName, "BIOSes", sizeof(folderName));
 			break;
 	}
 
@@ -295,13 +295,17 @@ const char * S9xGetFilename (const char *inExt, enum s9x_getdirtype dirtype)
 		else
 		{
 			_splitpath(Memory.ROMFilename, drive, dir, fname, ext);
-			_makepath(filePath[index], drive, dir, fname, inExt);
+
+			strlcat(fname, inExt, sizeof(fname));
+			_makepath(filePath[index], drive, dir, fname, "");
 		}
 	}
 	else
 	{
 		_splitpath(Memory.ROMFilename, drive, dir, fname, ext);
-		_makepath(filePath[index], drive, dir, fname, inExt);
+
+		strlcat(fname, inExt, sizeof(fname));
+		_makepath(filePath[index], drive, dir, fname, "");
 	}
 
 	return (filePath[index]);
@@ -365,16 +369,6 @@ const char * S9xGetFilenameInc (const char *inExt, enum s9x_getdirtype dirtype)
 	return (NULL);
 }
 
-const char * S9xChooseFilename (bool8 read_only)
-{
-	return (NULL);
-}
-
-const char * S9xChooseMovieFilename (bool8 read_only)
-{
-	return (NULL);
-}
-
 bool8 S9xOpenSnapshotFile (const char *fname, bool8 read_only, STREAM *file)
 {
 	if (read_only)
@@ -400,7 +394,7 @@ const char * S9xBasename (const char *in)
 {
 	static char	s[PATH_MAX + 1];
 
-	strncpy(s, in, PATH_MAX + 1);
+	strlcpy(s, in, sizeof(s));
 	s[PATH_MAX] = 0;
 
 	size_t	l = strlen(s);
@@ -428,14 +422,14 @@ const char * S9xGetDirectory (enum s9x_getdirtype dirtype)
 
 	switch (dirtype)
 	{
-		case SNAPSHOT_DIR:		strcpy(inExt, ".frz");	break;
-		case SRAM_DIR:			strcpy(inExt, ".srm");	break;
-		case SCREENSHOT_DIR:	strcpy(inExt, ".png");	break;
-		case SPC_DIR:			strcpy(inExt, ".spc");	break;
-		case CHEAT_DIR:			strcpy(inExt, ".cht");	break;
-		case BIOS_DIR:			strcpy(inExt, ".bio");	break;
-		case LOG_DIR:			strcpy(inExt, ".log");	break;
-		default:				strcpy(inExt, ".xxx");	break;
+		case SNAPSHOT_DIR:		strlcpy(inExt, ".frz", sizeof(inExt));	break;
+		case SRAM_DIR:			strlcpy(inExt, ".srm", sizeof(inExt));	break;
+		case SCREENSHOT_DIR:	strlcpy(inExt, ".png", sizeof(inExt));	break;
+		case SPC_DIR:			strlcpy(inExt, ".spc", sizeof(inExt));	break;
+		case CHEAT_DIR:			strlcpy(inExt, ".cht", sizeof(inExt));	break;
+		case BIOS_DIR:			strlcpy(inExt, ".bio", sizeof(inExt));	break;
+		case LOG_DIR:			strlcpy(inExt, ".log", sizeof(inExt));	break;
+		default:				strlcpy(inExt, ".xxx", sizeof(inExt));	break;
 	}
 
 	_splitpath(S9xGetFilename(inExt, dirtype), drive, dir, fname, ext);
@@ -446,55 +440,4 @@ const char * S9xGetDirectory (enum s9x_getdirtype dirtype)
 		path[index][l - 1] = 0;
 
 	return (path[index]);
-}
-
-void _splitpath (const char *path, char *drive, char *dir, char *fname, char *ext)
-{
-	drive[0] = 0;
-	fname[0] = 0;
-	ext[0]   = 0;
-	dir[0]   = 0;
-
-	size_t	x;
-
-	x = strlen(path) - 1;
-	if (x < 0)
-		return;
-
-	while (x && (path[x] != MAC_PATH_SEP_CHAR))
-		x--;
-
-	if (x)
-	{
-		strcpy(dir, path);
-		dir[x + 1] = 0;
-
-		strcpy(fname, path + x + 1);
-	}
-	else
-		strcpy(fname, path);
-
-	x = strlen(fname);
-	while (x && (fname[x] != '.'))
-		x--;
-
-	if (x)
-	{
-		strcpy(ext, fname + x);
-		fname[x] = 0;
-	}
-}
-
-void _makepath (char *path, const char *drive, const char *dir, const char *fname, const char *ext)
-{
-	static const char	emp[] = "", dot[] = ".";
-
-	const char	*d, *f, *e, *p;
-
-	d = dir ? dir : emp;
-	f = fname ? fname : emp;
-	e = ext ? ext : emp;
-	p = (e[0] && e[0] != '.') ? dot : emp;
-
-	snprintf(path, PATH_MAX + 1, "%s%s%s%s", d, f, p, e);
 }

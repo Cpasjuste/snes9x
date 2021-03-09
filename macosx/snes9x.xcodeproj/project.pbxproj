@@ -13,11 +13,11 @@
 		302EEC9C22DAD0AB006D1502 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 302EEC9A22DAD0AB006D1502 /* AudioToolbox.framework */; };
 		302EEC9D22DAD0AB006D1502 /* AudioUnit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 302EEC9B22DAD0AB006D1502 /* AudioUnit.framework */; };
 		302EEC9F22DAD0B1006D1502 /* AGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 302EEC9E22DAD0B1006D1502 /* AGL.framework */; };
-		302EECA122DAD0B9006D1502 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 302EECA022DAD0B9006D1502 /* OpenGL.framework */; };
 		302EECA322DAD0C5006D1502 /* CoreImage.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 302EECA222DAD0C5006D1502 /* CoreImage.framework */; };
 		302EECA522DAD1B9006D1502 /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 302EECA422DAD1B9006D1502 /* CoreAudio.framework */; };
 		3042F7E3232E9BDD00C03F5E /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3042F7E2232E9BDD00C03F5E /* Carbon.framework */; };
 		3045A1EF22D03C4B0092B97D /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3045A1EE22D03C4B0092B97D /* Cocoa.framework */; };
+		3059DA94250690DB003EF183 /* compat.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3059DA93250690DB003EF183 /* compat.cpp */; };
 		30656200236A8BA700A1B3B2 /* gamecontrollerdb.txt in Resources */ = {isa = PBXBuildFile; fileRef = 306561FF236A8BA700A1B3B2 /* gamecontrollerdb.txt */; };
 		30714719230E379500917F82 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 30714718230E379500917F82 /* AppDelegate.m */; };
 		3071471B230E379600917F82 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3071471A230E379600917F82 /* Assets.xcassets */; };
@@ -209,7 +209,6 @@
 		30D15DE822CE6BC9005BC352 /* ioapi.h in Headers */ = {isa = PBXBuildFile; fileRef = CFA518D60EBCB4CA008379F6 /* ioapi.h */; };
 		30D15DE922CE6BC9005BC352 /* unzip.h in Headers */ = {isa = PBXBuildFile; fileRef = CFA518DA0EBCB4D2008379F6 /* unzip.h */; };
 		30D15DEA22CE6FE1005BC352 /* mac-os.mm in Sources */ = {isa = PBXBuildFile; fileRef = EAE0E96604D582B700A80003 /* mac-os.mm */; };
-		30D2506E2373AACC0076A160 /* S9xPrefsConstants.m in Sources */ = {isa = PBXBuildFile; fileRef = 30D2506D2373AACC0076A160 /* S9xPrefsConstants.m */; };
 		30D709B0236F583600AAB7C3 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = EA3BEA980A28384E00A8FAE5 /* Localizable.strings */; };
 		30D709B1236F585100AAB7C3 /* Snes9x Help in Resources */ = {isa = PBXBuildFile; fileRef = EA3BEAA80A28386500A8FAE5 /* Snes9x Help */; };
 		30D709B2236F731B00AAB7C3 /* CART.icns in Resources */ = {isa = PBXBuildFile; fileRef = EA3D2F3C0A26083B00BDACCC /* CART.icns */; };
@@ -219,8 +218,8 @@
 		30D709B6236F731B00AAB7C3 /* folder_Freezes.icns in Resources */ = {isa = PBXBuildFile; fileRef = EA3D2F3B0A26083B00BDACCC /* folder_Freezes.icns */; };
 		30D709B7236F731B00AAB7C3 /* musicbox_ledon.icns in Resources */ = {isa = PBXBuildFile; fileRef = EA3D2F380A26083B00BDACCC /* musicbox_ledon.icns */; };
 		30D709B8236F731B00AAB7C3 /* musicbox_ledoff.icns in Resources */ = {isa = PBXBuildFile; fileRef = EA3D2F390A26083B00BDACCC /* musicbox_ledoff.icns */; };
-		30D709C1236F7E3200AAB7C3 /* S9xPrefsViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 30D709BF236F7E3200AAB7C3 /* S9xPrefsViewController.m */; };
-		30D709C2236F7E3200AAB7C3 /* S9xPrefsViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 30D709C0236F7E3200AAB7C3 /* S9xPrefsViewController.xib */; };
+		30D709C1236F7E3200AAB7C3 /* S9xPreferencesWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = 30D709BF236F7E3200AAB7C3 /* S9xPreferencesWindowController.m */; };
+		30D709C2236F7E3200AAB7C3 /* S9xPreferencesWindowController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 30D709C0236F7E3200AAB7C3 /* S9xPreferencesWindowController.xib */; };
 		30D709C5236F90DF00AAB7C3 /* S9xButtonConfigTextField.m in Sources */ = {isa = PBXBuildFile; fileRef = 30D709C4236F90DF00AAB7C3 /* S9xButtonConfigTextField.m */; };
 /* End PBXBuildFile section */
 
@@ -260,10 +259,11 @@
 		3042F7E2232E9BDD00C03F5E /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = System/Library/Frameworks/Carbon.framework; sourceTree = SDKROOT; };
 		3045A1EC22D03C430092B97D /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		3045A1EE22D03C4B0092B97D /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
+		3059DA93250690DB003EF183 /* compat.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compat.cpp; sourceTree = "<group>"; };
 		306561FF236A8BA700A1B3B2 /* gamecontrollerdb.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = gamecontrollerdb.txt; sourceTree = "<group>"; };
 		30714715230E379500917F82 /* Snes9x.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Snes9x.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		30714717230E379500917F82 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
-		30714718230E379500917F82 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
+		30714718230E379500917F82 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; usesTabs = 0; };
 		3071471A230E379600917F82 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		3071471D230E379600917F82 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
 		3071471F230E379600917F82 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -292,15 +292,14 @@
 		30AD1D1F22FBB2EA000EE989 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		30AD1D2022FBB2EA000EE989 /* en */ = {isa = PBXFileReference; lastKnownFileType = folder; name = en; path = "en.lproj/Snes9x Help"; sourceTree = "<group>"; };
 		30AD1D2122FBB2EA000EE989 /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/Snes9x.xib; sourceTree = "<group>"; };
+		30C49EF6250C0F2B007D04F8 /* Snes9xDebug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Snes9xDebug.entitlements; sourceTree = "<group>"; };
 		30CCAD422290472E00549AED /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = /Users/buckley/Projects/snes9x/macosx/Info.plist; sourceTree = "<absolute>"; };
 		30D15CEF22CE6B5A005BC352 /* snes9x_framework.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = snes9x_framework.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		30D15CF122CE6B5A005BC352 /* snes9x_framework.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = snes9x_framework.h; sourceTree = "<group>"; };
 		30D15CF222CE6B5A005BC352 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		30D2506D2373AACC0076A160 /* S9xPrefsConstants.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = S9xPrefsConstants.m; sourceTree = "<group>"; };
-		30D2506F2373AB880076A160 /* S9xPrefsConstants.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = S9xPrefsConstants.h; sourceTree = "<group>"; };
-		30D709BE236F7E3200AAB7C3 /* S9xPrefsViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = S9xPrefsViewController.h; sourceTree = "<group>"; };
-		30D709BF236F7E3200AAB7C3 /* S9xPrefsViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = S9xPrefsViewController.m; sourceTree = "<group>"; };
-		30D709C0236F7E3200AAB7C3 /* S9xPrefsViewController.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = S9xPrefsViewController.xib; sourceTree = "<group>"; };
+		30D709BE236F7E3200AAB7C3 /* S9xPreferencesWindowController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = S9xPreferencesWindowController.h; sourceTree = "<group>"; };
+		30D709BF236F7E3200AAB7C3 /* S9xPreferencesWindowController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = S9xPreferencesWindowController.m; sourceTree = "<group>"; };
+		30D709C0236F7E3200AAB7C3 /* S9xPreferencesWindowController.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = S9xPreferencesWindowController.xib; sourceTree = "<group>"; };
 		30D709C3236F90DF00AAB7C3 /* S9xButtonConfigTextField.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = S9xButtonConfigTextField.h; sourceTree = "<group>"; };
 		30D709C4236F90DF00AAB7C3 /* S9xButtonConfigTextField.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = S9xButtonConfigTextField.m; sourceTree = "<group>"; };
 		85FEF90620DDB15B00C038E9 /* bml.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = bml.cpp; sourceTree = "<group>"; usesTabs = 1; };
@@ -546,7 +545,6 @@
 				308092F72320B041006A2860 /* CoreGraphics.framework in Frameworks */,
 				302EECA522DAD1B9006D1502 /* CoreAudio.framework in Frameworks */,
 				302EECA322DAD0C5006D1502 /* CoreImage.framework in Frameworks */,
-				302EECA122DAD0B9006D1502 /* OpenGL.framework in Frameworks */,
 				302EEC9F22DAD0B1006D1502 /* AGL.framework in Frameworks */,
 				302EEC9C22DAD0AB006D1502 /* AudioToolbox.framework in Frameworks */,
 				302EEC9D22DAD0AB006D1502 /* AudioUnit.framework in Frameworks */,
@@ -637,6 +635,8 @@
 		30714716230E379500917F82 /* Snes9x */ = {
 			isa = PBXGroup;
 			children = (
+				600546BE250F8F1700EC0977 /* S9xPreferences */,
+				30C49EF6250C0F2B007D04F8 /* Snes9xDebug.entitlements */,
 				30714717230E379500917F82 /* AppDelegate.h */,
 				30714718230E379500917F82 /* AppDelegate.m */,
 				3071471A230E379600917F82 /* Assets.xcassets */,
@@ -644,13 +644,6 @@
 				3071471F230E379600917F82 /* Info.plist */,
 				30714720230E379600917F82 /* main.m */,
 				30714722230E379600917F82 /* Snes9x.entitlements */,
-				30D709BE236F7E3200AAB7C3 /* S9xPrefsViewController.h */,
-				30D709BF236F7E3200AAB7C3 /* S9xPrefsViewController.m */,
-				30D709C0236F7E3200AAB7C3 /* S9xPrefsViewController.xib */,
-				30D709C3236F90DF00AAB7C3 /* S9xButtonConfigTextField.h */,
-				30D709C4236F90DF00AAB7C3 /* S9xButtonConfigTextField.m */,
-				30D2506D2373AACC0076A160 /* S9xPrefsConstants.m */,
-				30D2506F2373AB880076A160 /* S9xPrefsConstants.h */,
 				3082C4282379199F0081CA7C /* S9xApplication.h */,
 				3082C4292379199F0081CA7C /* S9xApplication.m */,
 			);
@@ -677,6 +670,18 @@
 				306561FF236A8BA700A1B3B2 /* gamecontrollerdb.txt */,
 			);
 			path = "snes9x framework";
+			sourceTree = "<group>";
+		};
+		600546BE250F8F1700EC0977 /* S9xPreferences */ = {
+			isa = PBXGroup;
+			children = (
+				30D709C3236F90DF00AAB7C3 /* S9xButtonConfigTextField.h */,
+				30D709C4236F90DF00AAB7C3 /* S9xButtonConfigTextField.m */,
+				30D709BE236F7E3200AAB7C3 /* S9xPreferencesWindowController.h */,
+				30D709BF236F7E3200AAB7C3 /* S9xPreferencesWindowController.m */,
+				30D709C0236F7E3200AAB7C3 /* S9xPreferencesWindowController.xib */,
+			);
+			path = S9xPreferences;
 			sourceTree = "<group>";
 		};
 		BF0B39791FA5792F002B04D3 /* apu */ = {
@@ -789,109 +794,110 @@
 		EAE061540526CCB900A80003 /* snes9x */ = {
 			isa = PBXGroup;
 			children = (
-				307C861022D27C53001B879E /* tileimpl-h2x1.cpp */,
-				307C860D22D27C53001B879E /* tileimpl-n1x1.cpp */,
-				307C860F22D27C53001B879E /* tileimpl-n2x1.cpp */,
-				307C860E22D27C53001B879E /* tileimpl.h */,
-				85FEF90A20DDB18D00C038E9 /* sha256.cpp */,
-				85FEF90B20DDB18D00C038E9 /* sha256.h */,
+				EAE0615A0526CCB900A80003 /* 65c816.h */,
+				BF0B39791FA5792F002B04D3 /* apu */,
 				85FEF90620DDB15B00C038E9 /* bml.cpp */,
 				85FEF90720DDB15C00C038E9 /* bml.h */,
-				EAE0615A0526CCB900A80003 /* 65c816.h */,
-				EA2F381A09B17E9E0078DCA7 /* bsx.h */,
-				EAE061600526CCB900A80003 /* c4.h */,
-				EAE061640526CCB900A80003 /* cheats.h */,
-				EA809E9308F8D6C40072CDFB /* controls.h */,
-				EAE0616A0526CCB900A80003 /* cpuaddr.h */,
-				EAE0616C0526CCB900A80003 /* cpuexec.h */,
-				EAE0616D0526CCB900A80003 /* cpumacro.h */,
-				EAE0616F0526CCB900A80003 /* cpuops.h */,
-				EA809E9D08F8D73A0072CDFB /* crosshairs.h */,
-				EA6E6C0E08F9734500CB3555 /* debug.h */,
-				EAE061730526CCB900A80003 /* display.h */,
-				EAE061750526CCB900A80003 /* dma.h */,
-				CF5D3E100FAFD34200340007 /* dsp.h */,
-				EAE0617A0526CCB900A80003 /* font.h */,
-				EAE0617D0526CCB900A80003 /* fxemu.h */,
-				EAE0617F0526CCB900A80003 /* fxinst.h */,
-				EAE061800526CCB900A80003 /* getset.h */,
-				EAE061820526CCB900A80003 /* gfx.h */,
-				EA809E9508F8D6E00072CDFB /* language.h */,
-				EA00D01F0A5A998F000C58E0 /* logger.h */,
-				EAE061B10526CCB900A80003 /* memmap.h */,
-				EAE061B20526CCB900A80003 /* messages.h */,
-				EAE061B30526CCB900A80003 /* missing.h */,
-				EA813E86066F5076004F99B5 /* movie.h */,
-				BF0B39E21FA58124002B04D3 /* msu1.h */,
-				EAE061C40526CCB900A80003 /* obc1.h */,
-				EAE061C60526CCB900A80003 /* pixform.h */,
-				EAE061C70526CCB900A80003 /* port.h */,
-				EAE061C90526CCB900A80003 /* ppu.h */,
-				EA809E9708F8D70D0072CDFB /* stream.h */,
-				EAE061CC0526CCB900A80003 /* sa1.h */,
-				EAE061CE0526CCB900A80003 /* sar.h */,
-				EAE061D00526CCB900A80003 /* screenshot.h */,
-				EAE061D20526CCB900A80003 /* sdd1.h */,
-				EA22EFA2053EEDE500A80003 /* sdd1emu.h */,
-				EAE061D50526CCB900A80003 /* seta.h */,
-				EAE061DC0526CCB900A80003 /* snapshot.h */,
-				EAE061DE0526CCB900A80003 /* snes9x.h */,
-				EAE061E60526CCB900A80003 /* spc7110.h */,
-				CF2CFFDC0F10F2DD00B8B35E /* spc7110dec.h */,
-				CF2CFFDB0F10F2DD00B8B35E /* spc7110emu.h */,
-				EAE061EA0526CCB900A80003 /* srtc.h */,
-				CFA82C3D0F1B43A60089C17F /* srtcemu.h */,
-				EAE061EC0526CCB900A80003 /* tile.h */,
 				EA2F380F09B17E070078DCA7 /* bsx.cpp */,
+				EA2F381A09B17E9E0078DCA7 /* bsx.h */,
 				EAE0615F0526CCB900A80003 /* c4.cpp */,
+				EAE061600526CCB900A80003 /* c4.h */,
 				EAE061610526CCB900A80003 /* c4emu.cpp */,
 				EAE061630526CCB900A80003 /* cheats.cpp */,
+				EAE061640526CCB900A80003 /* cheats.h */,
 				EAE061650526CCB900A80003 /* cheats2.cpp */,
 				EAE061660526CCB900A80003 /* clip.cpp */,
+				3059DA93250690DB003EF183 /* compat.cpp */,
 				EA809E9908F8D7240072CDFB /* controls.cpp */,
+				EA809E9308F8D6C40072CDFB /* controls.h */,
 				EAE061690526CCB900A80003 /* cpu.cpp */,
+				EAE0616A0526CCB900A80003 /* cpuaddr.h */,
 				EAE0616B0526CCB900A80003 /* cpuexec.cpp */,
+				EAE0616C0526CCB900A80003 /* cpuexec.h */,
+				EAE0616D0526CCB900A80003 /* cpumacro.h */,
 				EAE0616E0526CCB900A80003 /* cpuops.cpp */,
+				EAE0616F0526CCB900A80003 /* cpuops.h */,
 				EA809E9B08F8D72C0072CDFB /* crosshairs.cpp */,
+				EA809E9D08F8D73A0072CDFB /* crosshairs.h */,
 				EAE061710526CCB900A80003 /* debug.cpp */,
+				EA6E6C0E08F9734500CB3555 /* debug.h */,
+				EAE061730526CCB900A80003 /* display.h */,
 				EAE061740526CCB900A80003 /* dma.cpp */,
+				EAE061750526CCB900A80003 /* dma.h */,
 				CF5D3E270FAFD35A00340007 /* dsp.cpp */,
+				CF5D3E100FAFD34200340007 /* dsp.h */,
 				EAE061760526CCB900A80003 /* dsp1.cpp */,
 				CF5D3E1B0FAFD35400340007 /* dsp2.cpp */,
 				CF5D3E1D0FAFD35400340007 /* dsp3.cpp */,
 				CF5D3E1C0FAFD35400340007 /* dsp4.cpp */,
+				CF5553B00EA24C36005957E4 /* filter */,
+				EAE0617A0526CCB900A80003 /* font.h */,
 				EAE0617C0526CCB900A80003 /* fxemu.cpp */,
+				EAE0617D0526CCB900A80003 /* fxemu.h */,
 				EAE0617E0526CCB900A80003 /* fxinst.cpp */,
+				EAE0617F0526CCB900A80003 /* fxinst.h */,
+				EAE061800526CCB900A80003 /* getset.h */,
 				EA31FE2D05F7743E00E13748 /* gfx.cpp */,
+				EAE061820526CCB900A80003 /* gfx.h */,
 				EAE061830526CCB900A80003 /* globals.cpp */,
+				EAA7B5D807609F76001BAB8B /* jma */,
+				EA809E9508F8D6E00072CDFB /* language.h */,
 				EAE061A90526CCB900A80003 /* loadzip.cpp */,
 				EA00D01D0A5A9956000C58E0 /* logger.cpp */,
+				EA00D01F0A5A998F000C58E0 /* logger.h */,
+				EAECB65C04AC7FCD00A80003 /* macosx */,
 				EAB7319C0527033000A80003 /* memmap.cpp */,
+				EAE061B10526CCB900A80003 /* memmap.h */,
+				EAE061B20526CCB900A80003 /* messages.h */,
+				EAE061B30526CCB900A80003 /* missing.h */,
 				EA813E9A066F50A5004F99B5 /* movie.cpp */,
+				EA813E86066F5076004F99B5 /* movie.h */,
 				BF0B39DE1FA580F9002B04D3 /* msu1.cpp */,
+				BF0B39E21FA58124002B04D3 /* msu1.h */,
 				EAE061C30526CCB900A80003 /* obc1.cpp */,
+				EAE061C40526CCB900A80003 /* obc1.h */,
+				EAE061C60526CCB900A80003 /* pixform.h */,
+				EAE061C70526CCB900A80003 /* port.h */,
 				EAE061C80526CCB900A80003 /* ppu.cpp */,
-				EA809E9F08F8D7530072CDFB /* stream.cpp */,
+				EAE061C90526CCB900A80003 /* ppu.h */,
 				EAE061CB0526CCB900A80003 /* sa1.cpp */,
+				EAE061CC0526CCB900A80003 /* sa1.h */,
 				EAE061CD0526CCB900A80003 /* sa1cpu.cpp */,
+				EAE061CE0526CCB900A80003 /* sar.h */,
+				EAE061D00526CCB900A80003 /* screenshot.h */,
 				EAE061D10526CCB900A80003 /* sdd1.cpp */,
+				EAE061D20526CCB900A80003 /* sdd1.h */,
 				EA22EFA4053EEE0700A80003 /* sdd1emu.cpp */,
+				EA22EFA2053EEDE500A80003 /* sdd1emu.h */,
 				EAE061D40526CCB900A80003 /* seta.cpp */,
+				EAE061D50526CCB900A80003 /* seta.h */,
 				EAE061D60526CCB900A80003 /* seta010.cpp */,
 				EAE061D70526CCB900A80003 /* seta011.cpp */,
 				EAE061D80526CCB900A80003 /* seta018.cpp */,
+				85FEF90A20DDB18D00C038E9 /* sha256.cpp */,
+				85FEF90B20DDB18D00C038E9 /* sha256.h */,
 				EAE061DB0526CCB900A80003 /* snapshot.cpp */,
+				EAE061DC0526CCB900A80003 /* snapshot.h */,
+				EAE061DE0526CCB900A80003 /* snes9x.h */,
 				EAE061E50526CCB900A80003 /* spc7110.cpp */,
+				EAE061E60526CCB900A80003 /* spc7110.h */,
 				CF2CFFD40F10F2C000B8B35E /* spc7110dec.cpp */,
+				CF2CFFDC0F10F2DD00B8B35E /* spc7110dec.h */,
 				CF2CFFD30F10F2C000B8B35E /* spc7110emu.cpp */,
+				CF2CFFDB0F10F2DD00B8B35E /* spc7110emu.h */,
 				EAE061E90526CCB900A80003 /* srtc.cpp */,
+				EAE061EA0526CCB900A80003 /* srtc.h */,
 				CFA82C3E0F1B43A60089C17F /* srtcemu.cpp */,
+				CFA82C3D0F1B43A60089C17F /* srtcemu.h */,
+				EA809E9F08F8D7530072CDFB /* stream.cpp */,
+				EA809E9708F8D70D0072CDFB /* stream.h */,
 				EAE061EB0526CCB900A80003 /* tile.cpp */,
-				BF0B39791FA5792F002B04D3 /* apu */,
-				CF5553B00EA24C36005957E4 /* filter */,
-				EAA7B5D807609F76001BAB8B /* jma */,
+				EAE061EC0526CCB900A80003 /* tile.h */,
+				307C861022D27C53001B879E /* tileimpl-h2x1.cpp */,
+				307C860D22D27C53001B879E /* tileimpl-n1x1.cpp */,
+				307C860F22D27C53001B879E /* tileimpl-n2x1.cpp */,
+				307C860E22D27C53001B879E /* tileimpl.h */,
 				EAE061FD0526CCB900A80003 /* unzip */,
-				EAECB65C04AC7FCD00A80003 /* macosx */,
 			);
 			name = snes9x;
 			path = ..;
@@ -1125,7 +1131,7 @@
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 1030;
-				LastUpgradeCheck = 1020;
+				LastUpgradeCheck = 1200;
 				TargetAttributes = {
 					30714714230E379500917F82 = {
 						CreatedOnToolsVersion = 10.3;
@@ -1155,8 +1161,8 @@
 			projectDirPath = "";
 			projectRoot = ..;
 			targets = (
-				30D15CEE22CE6B5A005BC352 /* snes9x framework */,
 				30714714230E379500917F82 /* Snes9x */,
+				30D15CEE22CE6B5A005BC352 /* snes9x framework */,
 			);
 		};
 /* End PBXProject section */
@@ -1176,7 +1182,7 @@
 				30D709B2236F731B00AAB7C3 /* CART.icns in Resources */,
 				30D709B7236F731B00AAB7C3 /* musicbox_ledon.icns in Resources */,
 				30D709B6236F731B00AAB7C3 /* folder_Freezes.icns in Resources */,
-				30D709C2236F7E3200AAB7C3 /* S9xPrefsViewController.xib in Resources */,
+				30D709C2236F7E3200AAB7C3 /* S9xPreferencesWindowController.xib in Resources */,
 				3071471E230E379600917F82 /* MainMenu.xib in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1203,8 +1209,7 @@
 				30714721230E379600917F82 /* main.m in Sources */,
 				30714719230E379500917F82 /* AppDelegate.m in Sources */,
 				3082C42A2379199F0081CA7C /* S9xApplication.m in Sources */,
-				30D709C1236F7E3200AAB7C3 /* S9xPrefsViewController.m in Sources */,
-				30D2506E2373AACC0076A160 /* S9xPrefsConstants.m in Sources */,
+				30D709C1236F7E3200AAB7C3 /* S9xPreferencesWindowController.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1298,6 +1303,7 @@
 				307C861822D27C53001B879E /* tileimpl-h2x1.cpp in Sources */,
 				30D15D8E22CE6B75005BC352 /* s9x-jma.cpp in Sources */,
 				30D15D8F22CE6B75005BC352 /* winout.cpp in Sources */,
+				3059DA94250690DB003EF183 /* compat.cpp in Sources */,
 				30D15D9322CE6B75005BC352 /* ioapi.c in Sources */,
 				30D15D9422CE6B75005BC352 /* unzip.c in Sources */,
 			);
@@ -1375,12 +1381,12 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CODE_SIGN_ENTITLEMENTS = Snes9x/Snes9x.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = S4YHUE5Y65;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_NS_ASSERTIONS = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -1395,7 +1401,6 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = macosx;
-				VALID_ARCHS = x86_64;
 			};
 			name = Release;
 		};
@@ -1416,14 +1421,14 @@
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CODE_SIGN_ENTITLEMENTS = Snes9x/Snes9x.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_ENTITLEMENTS = Snes9x/Snes9xDebug.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = S4YHUE5Y65;
-				ENABLE_HARDENED_RUNTIME = YES;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -1442,7 +1447,6 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = macosx;
-				VALID_ARCHS = x86_64;
 			};
 			name = Debug;
 		};
@@ -1494,7 +1498,6 @@
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = x86_64;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
@@ -1517,12 +1520,13 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = "";
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
@@ -1551,9 +1555,9 @@
 				OTHER_CFLAGS = "-DGL_SILENCE_DEPRECATION";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.snes9x.macos.snes9x-framework";
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = x86_64;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
@@ -1575,6 +1579,7 @@
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -1610,6 +1615,7 @@
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;

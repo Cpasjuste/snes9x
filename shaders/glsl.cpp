@@ -87,7 +87,7 @@ static const char *wrap_mode_enum_to_string(int val)
 }
 
 
-bool GLSLShader::load_shader_preset_file(char *filename)
+bool GLSLShader::load_shader_preset_file(const char *filename)
 {
     char key[256];
     int length = strlen(filename);
@@ -345,6 +345,14 @@ void GLSLShader::read_shader_file_with_includes(std::string filename,
             sscanf(line.c_str(), "#pragma parameter %s \"%[^\"]\" %f %f %f %f",
                    par.id, par.name, &par.val, &par.min, &par.max, &par.step);
 
+            unsigned int last_decimal = line.rfind(".") + 1;
+            unsigned int index = last_decimal;
+            while (isdigit(line[index]) && index < line.length())
+                index++;
+            par.digits = index - last_decimal;
+            if (line[index - 1] == '0' && line[index - 2] == '.')
+                par.digits = 0;
+
             if (par.step == 0.0f)
                 par.step = 1.0f;
 
@@ -433,7 +441,7 @@ GLuint GLSLShader::compile_shader(std::vector<std::string> &lines,
     return status;
 }
 
-bool GLSLShader::load_shader(char *filename)
+bool GLSLShader::load_shader(const char *filename)
 {
     char shader_path[PATH_MAX];
     char temp[PATH_MAX];
